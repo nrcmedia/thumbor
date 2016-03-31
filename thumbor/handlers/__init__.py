@@ -18,7 +18,7 @@ import tornado.gen as gen
 
 from thumbor import __version__
 from thumbor.context import Context
-from thumbor.engines import BaseEngine
+from thumbor.engines import BaseEngine, EngineResult
 from thumbor.engines.json_engine import JSONEngine
 from thumbor.loaders import LoaderResult
 from thumbor.result_storages import ResultStorageResult
@@ -109,6 +109,9 @@ class BaseHandler(tornado.web.RequestHandler):
                 elif result.loader_error == LoaderResult.ERROR_UPSTREAM:
                     # Return a Bad Gateway status if the error came from upstream
                     self._error(502)
+                    return
+                elif result.engine_error == EngineResult.COULD_NOT_LOAD_IMAGE:
+                    self._error(400)
                     return
                 else:
                     self._error(500)
@@ -477,6 +480,13 @@ class BaseHandler(tornado.web.RequestHandler):
                 self.context.request.engine = self.context.modules.engine
 
             self.context.request.engine.load(fetch_result.buffer, extension)
+
+            if self.context.request.engine.image is None:
+                fetch_result.successful = False
+                fetch_result.buffer = None
+                fetch_result.engine = self.context.request.engine
+                fetch_result.engine_error = EngineResult.COULD_NOT_LOAD_IMAGE
+                raise gen.Return(fetch_result)
 
             fetch_result.normalized = self.context.request.engine.normalize()
             is_no_storage = isinstance(storage, NoStorage)

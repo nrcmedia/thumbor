@@ -15,6 +15,30 @@ from thumbor.utils import logger, EXTENSION
 WEBP_SIDE_LIMIT = 16383
 
 
+class EngineResult(object):
+
+    COULD_NOT_LOAD_IMAGE = 'could not load image'
+
+    def __init__(self, buffer_=None, successful=True, error=None, metadata=dict()):
+        '''
+        :param buffer: The media buffer
+
+        :param successful: True when the media has been read by the engine.
+        :type successful: bool
+
+        :param error: Error code
+        :type error: str
+
+        :param metadata: Dictionary of metadata about the buffer
+        :type metadata: dict
+        '''
+
+        self.buffer = buffer_
+        self.successful = successful
+        self.error = error
+        self.metadata = metadata
+
+
 class MultipleEngine:
 
     def __init__(self, source_engine):
@@ -96,6 +120,8 @@ class BaseEngine(object):
             self.extension = EXTENSION.get(mime, '.jpg')
 
         image_or_frames = self.create_image(buffer)
+        if image_or_frames is None:
+            return
 
         if self.context.config.ALLOW_ANIMATED_GIFS and isinstance(image_or_frames, (list, tuple)):
             self.image = image_or_frames[0]
