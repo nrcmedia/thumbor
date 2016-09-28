@@ -21,7 +21,12 @@ class Detector(BaseDetector):
 
     def detect(self, callback):
         engine = self.context.modules.engine
-        sz = engine.size
+        try:
+            sz = engine.size
+        except Exception:
+            self.next(callback)
+            return
+
         image = cv.CreateImageHeader(sz, cv.IPL_DEPTH_8U, 3)
 
         image_mode, image_data = engine.image_data_as_rgb(False)
