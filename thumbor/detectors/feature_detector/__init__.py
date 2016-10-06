@@ -33,13 +33,17 @@ class Detector(BaseDetector):
             self.next(callback)
             return
 
-        points = cv2.goodFeaturesToTrack(
-            img,
-            maxCorners=20,
-            qualityLevel=0.04,
-            minDistance=1.0,
-            useHarrisDetector=False,
-        )
+        try:
+            points = cv2.goodFeaturesToTrack(
+                img,
+                maxCorners=20,
+                qualityLevel=0.04,
+                minDistance=1.0,
+                useHarrisDetector=False,
+            )
+        except Exception:
+            points = None
+
         if points is not None:
             for point in points:
                 x, y = point.ravel()
