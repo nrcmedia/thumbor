@@ -22,14 +22,13 @@ class Detector(BaseDetector):
     def detect(self, callback):
         engine = self.context.modules.engine
         try:
+            image_mode, image_data = engine.image_data_as_rgb(False)
             sz = engine.size
         except Exception:
             self.next(callback)
             return
 
         image = cv.CreateImageHeader(sz, cv.IPL_DEPTH_8U, 3)
-
-        image_mode, image_data = engine.image_data_as_rgb(False)
         cv.SetData(image, image_data)
 
         gray_image = cv.CreateImage(engine.size, 8, 1)

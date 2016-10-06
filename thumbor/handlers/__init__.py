@@ -247,6 +247,9 @@ class BaseHandler(tornado.web.RequestHandler):
             else:
                 quality = self.context.config.QUALITY
         results = context.request.engine.read(image_extension, quality)
+        if not results:
+            self._error(500)
+            return
         if context.request.max_bytes is not None:
             results = self.reload_to_fit_in_kb(
                 context.request.engine,
@@ -300,11 +303,13 @@ class BaseHandler(tornado.web.RequestHandler):
             context.config.RESULT_STORAGE_STORES_UNSAFE or not context.request.unsafe)
 
         def inner(future):
-            results, content_type = future.result()
-            self._write_results_to_client(context, results, content_type)
+            result = future.result()
+            if result:
+                results, content_type = future.result()
+                self._write_results_to_client(context, results, content_type)
 
-            if should_store:
-                self._store_results(context, results)
+                if should_store:
+                    self._store_results(context, results)
 
         self.context.thread_pool.queue(
             operation=functools.partial(self._load_results, context),

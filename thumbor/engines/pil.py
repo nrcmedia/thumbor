@@ -194,6 +194,8 @@ class Engine(BaseEngine):
             # extension could not help determine format => use default
             self.image.format = FORMATS[ext]
             self.image.save(img_buffer, FORMATS[ext])
+        except OSError:
+            return
 
         results = img_buffer.getvalue()
         img_buffer.close()
