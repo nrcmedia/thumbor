@@ -1,4 +1,5 @@
 OS := $(shell uname)
+COMMIT := $(shell git rev-parse HEAD)
 
 run: compile_ext
 	@thumbor -l debug -d
@@ -156,3 +157,12 @@ sample_images:
 	cp tests/fixtures/filters/watermark.png tests/fixtures/images/watermark.png
 	# the watermark filter's logic is too complicated to reproduce with IM, the watermark test images can't be generated here
 	# similarly, the noise, colorize, redeye and fill filters generate output too unique to be reproduce with IM and can't be generated here
+
+# create a deployable package
+package:
+	rm -rf venv
+	rm -rf builds
+	find . -type f -name "*.pyc" -delete;
+	tar -pczf /tmp/$(COMMIT).tar.gz --exclude .git .
+	mkdir -p builds
+	mv /tmp/$(COMMIT).tar.gz builds/$(COMMIT).tar.gz
