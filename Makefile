@@ -64,3 +64,12 @@ docs: setup_docs build_docs
 
 static:
 	@flake8 --config=./flake8 .
+
+docker:
+	@rm -rf .playbooks && mkdir -p .playbooks/group_vars
+	@rsync -a ../devops-playbooks/deploy_thumbor.yml .playbooks
+	@rsync -a ../devops-playbooks/group_vars/thumbor_* .playbooks/group_vars
+	@rsync -a ../devops-playbooks/roles .playbooks
+	@ansible-vault decrypt .playbooks/group_vars/* .playbooks/roles/ssl_wildcard_nrc_nl/files/*
+	@docker-compose up --build
+	@rm -rf .playbooks

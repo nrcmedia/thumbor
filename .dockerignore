@@ -1,0 +1,12 @@
+.git
+venv
+vows
+
+
+*.pyc
+.DS_Store
+*.swp
+*.log
+.project
+*.iml
+*.idea
