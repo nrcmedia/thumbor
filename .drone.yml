@@ -2,7 +2,9 @@ build:
   image: centos:6.8
   pull: true
   commands:
-    - pip install --upgrade .
+    - yum install -y http://centos6.iuscommunity.org/ius-release.rpm
+    - yum install -y python27-pip
+    - /usr/bin/pip2.7 install --upgrade .
 
 publish:
   s3:
