@@ -5,7 +5,9 @@ build:
     - yum install -y http://centos6.iuscommunity.org/ius-release.rpm
     - yum install -y python27 python27-libs python27-pip python27-virtualenv
     - yum install -y libjpeg-turbo-devel libpng-devel libcurl-devel gcc gcc-c++
+    - /usr/bin/virtualenv-2.7 venv
     - /usr/bin/pip2.7 install --upgrade .
+    - make package
 
 publish:
   s3:

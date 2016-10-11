@@ -65,11 +65,21 @@ docs: setup_docs build_docs
 static:
 	@flake8 --config=./flake8 .
 
+# docker compose a local dev instance
 docker:
-	@rm -rf .playbooks && mkdir -p .playbooks/group_vars
-	@rsync -a ../devops-playbooks/deploy_thumbor.yml .playbooks
-	@rsync -a ../devops-playbooks/group_vars/thumbor_* .playbooks/group_vars
-	@rsync -a ../devops-playbooks/roles .playbooks
-	@ansible-vault decrypt .playbooks/group_vars/* .playbooks/roles/ssl_wildcard_nrc_nl/files/*
-	@docker-compose up --build
-	@rm -rf .playbooks
+	rm -rf .playbooks && mkdir -p .playbooks/group_vars
+	rsync -a ../devops-playbooks/deploy_thumbor.yml .playbooks
+	rsync -a ../devops-playbooks/group_vars/thumbor_* .playbooks/group_vars
+	rsync -a ../devops-playbooks/roles .playbooks
+	ansible-vault decrypt .playbooks/group_vars/* .playbooks/roles/ssl_wildcard_nrc_nl/files/*
+	docker-compose up --build
+	rm -rf .playbooks
+
+# create a deployable package
+package:
+	rm -rf venv
+	rm -rf builds
+	find . -type f -name "*.pyc" -delete;
+	tar -pczf /tmp/$(COMMIT).tar.gz --exclude .git --exclude node_modules --exclude front/static/specials .
+	mkdir -p builds
+	mv /tmp/$(COMMIT).tar.gz builds/$(COMMIT).tar.gz
