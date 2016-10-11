@@ -1,3 +1,5 @@
+COMMIT := $(shell git rev-parse HEAD)
+
 run: compile_ext
 	@thumbor -l debug
 
@@ -80,6 +82,6 @@ package:
 	rm -rf venv
 	rm -rf builds
 	find . -type f -name "*.pyc" -delete;
-	tar -pczf /tmp/$(COMMIT).tar.gz --exclude .git --exclude node_modules --exclude front/static/specials .
+	tar -pczf /tmp/$(COMMIT).tar.gz --exclude .git .
 	mkdir -p builds
 	mv /tmp/$(COMMIT).tar.gz builds/$(COMMIT).tar.gz
