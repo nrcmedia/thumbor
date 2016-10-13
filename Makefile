@@ -79,6 +79,7 @@ docker:
 
 # create a deployable package
 package:
+	rm -rf venv
 	rm -rf builds
 	find . -type f -name "*.pyc" -delete;
 	tar -pczf /tmp/$(COMMIT).tar.gz --exclude .git .
