@@ -503,7 +503,8 @@ class BaseHandler(tornado.web.RequestHandler):
 
             if not (is_no_storage or is_mixed_no_file_storage):
                 fetch_result.buffer = self.context.request.engine.read(extension)
-                storage.put(url, fetch_result.buffer)
+                if not (fetch_result.buffer is None):
+                    storage.put(url, fetch_result.buffer)
 
             storage.put_crypto(url)
         finally:
