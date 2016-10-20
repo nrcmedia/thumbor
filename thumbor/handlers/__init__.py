@@ -8,6 +8,7 @@
 # http://www.opensource.org/licenses/mit-license
 # Copyright (c) 2011 globo.com timehome@corp.globo.com
 
+import gc
 import sys
 import functools
 import datetime
@@ -310,6 +311,10 @@ class BaseHandler(tornado.web.RequestHandler):
 
                 if should_store:
                     self._store_results(context, results)
+
+                collected = gc.collect()
+                if collected > 10:
+                    logger.warn('Garbage collector: collected %d objects.' % collected)
 
         self.context.thread_pool.queue(
             operation=functools.partial(self._load_results, context),
