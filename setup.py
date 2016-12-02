@@ -100,6 +100,7 @@ http://<thumbor-server>/300x200/smart/s.glbimg.com/et/bb/f/original/2011/03/24/V
             "statsd>=3.0.1",
             "libthumbor",
             "futures",
+            "schedule",
         ],
 
         extras_require={

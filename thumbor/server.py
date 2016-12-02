@@ -8,9 +8,11 @@
 # http://www.opensource.org/licenses/mit-license
 # Copyright (c) 2011 globo.com timehome@corp.globo.com
 
+import gc
 import sys
 import logging
 import logging.config
+import schedule
 
 import os
 import socket
@@ -31,6 +33,11 @@ def get_as_integer(value):
         return int(value)
     except ValueError:
         return None
+
+def gc_collect():
+    collected = gc.collect()
+    if collected > 0:
+        logging.warn('Garbage collector: collected %d objects.' % collected)
 
 
 def main(arguments=None):  # NOQA
@@ -100,6 +107,9 @@ def main(arguments=None):  # NOQA
         server.bind(context.server.port, context.server.ip)
 
     server.start(1)
+
+    if (config.GC_INTERVAL and config.GC_INTERVAL > 0):
+        schedule.every(config.GC_INTERVAL).seconds.do(gc_collect)
 
     try:
         logging.debug('thumbor running at %s:%d' % (context.server.ip, context.server.port))
