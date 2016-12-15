@@ -27,6 +27,9 @@ def quote_url(url):
 
 def _normalize_url(url):
     url = quote_url(url)
+# NRC hotfix for not properly encoded urls with spaces in them
+    url = url.replace(' ', '%20')
+# END hotfix
     return url if url.startswith('http') else 'http://%s' % url
 
 
