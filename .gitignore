@@ -18,6 +18,7 @@ nohup.out
 .vscode
 *.iml
 opencv
+venv
 
 # Debian packaging
 /debsetup.py

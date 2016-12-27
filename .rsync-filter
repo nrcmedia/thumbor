@@ -1,0 +1,35 @@
+- *.pyc
+- .DS_Store
+- *.swp
+- dist/
+- *.egg-info
+- .project
+- .pydevprojectthumbor/tests/visual_test/img
+- .coverage
+- tests/visual_test/img/
+- *.swo
+- *.swm
+- *.swn
+- tests/visual_test/build
+- build
+- *.so
+- nohup.out
+- *.idea
+- *.iml
+- opencv
+- venv
+
+# Debian packaging
+- /debsetup.py
+- /debian/files
+- /debian/thumbor/
+- /debian/thumbor.debhelper.log
+- /debian/thumbor.postinst.debhelper
+- /debian/thumbor.preinst.debhelper
+- /debian/thumbor.postrm.debhelper
+- /debian/thumbor.prerm.debhelper
+- /debian/thumbor.substvars
+- /debian/tmp/
+- .ropeproject/
+- .venv
+- docs/_build
