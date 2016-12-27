@@ -17,6 +17,7 @@ nohup.out
 *.idea
 *.iml
 opencv
+venv
 
 # Debian packaging
 /debsetup.py
