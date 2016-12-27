@@ -158,6 +158,14 @@ sample_images:
 	# the watermark filter's logic is too complicated to reproduce with IM, the watermark test images can't be generated here
 	# similarly, the noise, colorize, redeye and fill filters generate output too unique to be reproduce with IM and can't be generated here
 
+# create a venv
+venv:
+	virtualenv-2.7 venv
+	venv/bin/pip install --upgrade .
+	venv/bin/pip install numpy
+	@test ! -x /usr/lib/python2.7/site-packages/cv2.so || ln -sf /usr/lib/python2.7/site-packages/cv2.so venv/lib/python2.7/site-packages/cv2.so
+	@test ! -x /usr/lib/python2.7/site-packages/cv2.dll || ln -sf /usr/lib/python2.7/site-packages/cv2.dll venv/lib/python2.7/site-packages/cv2.dll
+
 # create a deployable package
 package:
 	rm -rf venv
@@ -166,3 +174,5 @@ package:
 	tar -pczf /tmp/$(COMMIT).tar.gz --exclude .git .
 	mkdir -p builds
 	mv /tmp/$(COMMIT).tar.gz builds/$(COMMIT).tar.gz
+
+.PHONY: venv package
