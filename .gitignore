@@ -18,6 +18,7 @@ nohup.out
 *.iml
 opencv
 venv
+newrelic.*
 
 # Debian packaging
 /debsetup.py

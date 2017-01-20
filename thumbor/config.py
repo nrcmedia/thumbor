@@ -135,6 +135,7 @@ Config.define('GC_INTERVAL', 60, 'Set garbage collection interval in seconds', '
 Config.define('STATSD_HOST', None, 'Host to send statsd instrumentation to', 'Metrics')
 Config.define('STATSD_PORT', 8125, 'Port to send statsd instrumentation to', 'Metrics')
 Config.define('STATSD_PREFIX', None, 'Prefix for statsd', 'Metrics')
+Config.define('NEW_RELIC_CONFIG_FILE', '/etc/newrelic.ini', 'New Relic config file', 'Metrics')
 
 # FILE LOADER OPTIONS
 Config.define('FILE_LOADER_ROOT_PATH', home, 'The root path where the File Loader will try to find images', 'File Loader')
