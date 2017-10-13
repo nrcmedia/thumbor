@@ -16,7 +16,6 @@ from datetime import datetime, timedelta
 import pytz
 from json import loads
 
-import tornado.web
 from tornado.concurrent import return_future
 from preggy import expect
 from mock import Mock, patch
@@ -70,6 +69,7 @@ class FetchResultTestCase(PythonTestCase):
         expect(result.engine).to_equal(engine_mock)
         expect(result.successful).to_be_true()
         expect(result.loader_error).to_equal(error_mock)
+
 
 class BaseImagingTestCase(TestCase):
     @classmethod
