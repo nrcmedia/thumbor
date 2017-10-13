@@ -194,11 +194,10 @@ class Filter(BaseFilter):
 
     @filter_method(r'horizontal', r'smart', r'[^\)]+', async=True)
     @tornado.gen.coroutine
-    def distributed_collage(self, callback, orientation, alignment, urls):
+    def distributed_collage(self, orientation, alignment, urls):
         logger.debug('filters.distributed_collage: distributed_collage invoked')
         self.storage = self.context.modules.storage
 
-        self.callback = callback
         self.orientation = orientation
         self.alignment = alignment
         self.urls = urls.split('|')
@@ -207,10 +206,10 @@ class Filter(BaseFilter):
         total = len(self.urls)
         if total > self.MAX_IMAGES:
             logger.error('filters.distributed_collage: Too many images to join')
-            callback()
+            return
         elif total == 0:
             logger.error('filters.distributed_collage: No images to join')
-            callback()
+            return
         else:
             self.urls = self.urls[:self.MAX_IMAGES]
             for url in self.urls:
@@ -243,7 +242,7 @@ class Filter(BaseFilter):
     def on_image_fetch(self):
         if (self.is_any_failed()):
             logger.error('filters.distributed_collage: Some images failed')
-            self.callback()
+            return
         elif self.is_all_fetched():
             self.assembly()
 
@@ -279,4 +278,3 @@ class Filter(BaseFilter):
 
         self.engine.image = canvas.image
         logger.debug('filters.distributed_collage: assembly finished')
-        self.callback()
