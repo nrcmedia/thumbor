@@ -72,6 +72,7 @@ class FillFilterTestCase(FilterTestCase):
         ssim = self.get_ssim(image, expected)
         expect(ssim).to_be_greater_than(0.97)
 
+    @tornado.testing.gen_test
     def test_fill_filter_with_full_fit_in_orig_width(self):
         def config_context(context):
             context.request.fit_in = True
@@ -79,7 +80,7 @@ class FillFilterTestCase(FilterTestCase):
             context.request.width = 'orig'
             context.request.height = 800
 
-        image = self.get_filtered(
+        image = yield self.get_filtered(
             'source.jpg',
             'thumbor.filters.fill',
             'fill(auto)',

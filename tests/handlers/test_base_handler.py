@@ -24,7 +24,7 @@ from six.moves.urllib.parse import quote
 from thumbor.config import Config
 from thumbor.importer import Importer
 from thumbor.context import Context, ServerParameters, RequestParameters
-from thumbor.handlers import FetchResult, BaseHandler
+from thumbor.handlers.imaging import FetchResult, ImagingHandler
 from thumbor.loaders import LoaderResult
 from thumbor.result_storages.file_storage import Storage as FileResultStorage
 from thumbor.storages.file_storage import Storage as FileStorage
@@ -529,7 +529,6 @@ class ImageOperationsWithAutoWebPWithResultStorageTestCase(BaseImagingTestCase):
         expect(response.headers).to_include('Vary')
         expect(response.headers['Vary']).to_include('Accept')
         expect(response.body).to_be_webp()
-        expect(self.context.request.engine.extension).to_equal('.webp')
 
 
 class ImageOperationsWithoutEtagsTestCase(BaseImagingTestCase):
@@ -1031,11 +1030,11 @@ class ImageOperationsWithoutStorage(BaseImagingTestCase):
         expect(len(response.body)).to_be_greater_than(1000)
 
 
-class TranslateCoordinatesTestCase(TestCase):
+class TranslateCoordinatesTestCase(PythonTestCase):
     def setUp(self, *args, **kwargs):
         super(TranslateCoordinatesTestCase, self).setUp(*args, **kwargs)
         coords = self.get_coords()
-        self.translate_crop_coordinates = BaseHandler.translate_crop_coordinates(
+        self.translate_crop_coordinates = ImagingHandler.translate_crop_coordinates(
             original_width=coords['original_width'],
             original_height=coords['original_height'],
             width=coords['width'],

@@ -7,7 +7,7 @@
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license
 # Copyright (c) 2011 globo.com thumbor@googlegroups.com
-import tornado.web
+import gc
 import tornado.ioloop
 
 from thumbor.handlers.blacklist import BlacklistHandler
@@ -17,6 +17,10 @@ from thumbor.handlers.image_resource import ImageResourceHandler
 from thumbor.url import Url
 from thumbor.handlers.imaging import ImagingHandler
 
+
+class GarbageHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write('{} objects collected'.format(gc.collect()))
 
 class ThumborServiceApp(tornado.web.Application):
 
@@ -28,6 +32,7 @@ class ThumborServiceApp(tornado.web.Application):
     def get_handlers(self):
         handlers = [
             (r'/healthcheck', HealthcheckHandler),
+            (r'/test', GarbageHandler),
         ]
 
         if self.context.config.UPLOAD_ENABLED:
