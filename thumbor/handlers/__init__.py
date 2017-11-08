@@ -54,43 +54,6 @@ class FetchResult(object):
 class BaseHandler(tornado.web.RequestHandler):
     url_locks = {}
 
-    def prepare(self, *args, **kwargs):
-        super(BaseHandler, self).prepare(*args, **kwargs)
-
-        if not hasattr(self, 'context'):
-            return
-
-        self._response_ext = None
-        self._response_length = None
-
-        self._response_start = datetime.datetime.now()
-        self.context.metrics.incr('response.count')
-
-    def on_finish(self, *args, **kwargs):
-        super(BaseHandler, self).on_finish(*args, **kwargs)
-
-        if not hasattr(self, 'context'):
-            return
-
-        total_time = (datetime.datetime.now() - self._response_start).total_seconds() * 1000
-        status = self.get_status()
-        self.context.metrics.timing('response.time', total_time)
-        self.context.metrics.timing('response.time.{0}'.format(status), total_time)
-        self.context.metrics.incr('response.status.{0}'.format(status))
-
-        if self._response_ext is not None:
-            ext = self._response_ext
-            self.context.metrics.incr('response.format{0}'.format(ext))
-            self.context.metrics.timing('response.time{0}'.format(ext), total_time)
-            if self._response_length is not None:
-                self.context.metrics.incr('response.bytes{0}'.format(ext), self._response_length)
-
-    def _error(self, status, msg=None):
-        self.set_status(status)
-        if msg is not None:
-            logger.warn(msg)
-        self.finish()
-
     @gen.coroutine
     def execute_image_operations(self):
         self.context.request.quality = None
@@ -98,7 +61,7 @@ class BaseHandler(tornado.web.RequestHandler):
         req = self.context.request
         conf = self.context.config
 
-        should_store = self.context.config.RESULT_STORAGE_STORES_UNSAFE or not self.context.request.unsafe
+        should_store = conf.RESULT_STORAGE_STORES_UNSAFE or not req.unsafe
         if self.context.modules.result_storage and should_store:
             start = datetime.datetime.now()
 
@@ -106,8 +69,7 @@ class BaseHandler(tornado.web.RequestHandler):
                 result = yield gen.maybe_future(self.context.modules.result_storage.get())
             except Exception as e:
                 logger.exception('[BaseHander.execute_image_operations] %s', e)
-                self._error(500, 'Error while trying to get the image from the result storage: {}'.format(e))
-                return
+                raise tornado.web.HTTPError(500, 'Error while trying to get the image from the result storage: {}'.format(e))
 
             finish = datetime.datetime.now()
 
@@ -119,7 +81,7 @@ class BaseHandler(tornado.web.RequestHandler):
                 self.context.metrics.incr('result_storage.hit')
                 self.context.metrics.incr('result_storage.bytes_read', len(result))
                 logger.debug('[RESULT_STORAGE] IMAGE FOUND: %s' % req.url)
-                self.finish_request(self.context, result)
+                yield self.finish_request_from_storage(self.context, result)
                 return
 
         if conf.MAX_WIDTH and (not isinstance(req.width, basestring)) and req.width > conf.MAX_WIDTH:
@@ -131,7 +93,8 @@ class BaseHandler(tornado.web.RequestHandler):
 
         self.filters_runner = self.context.filters_factory.create_instances(self.context, self.context.request.filters)
         # Apply all the filters from the PRE_LOAD phase and call get_image() afterwards.
-        self.filters_runner.apply_filters(thumbor.filters.PHASE_PRE_LOAD, self.get_image)
+        yield self.filters_runner.apply_filters(thumbor.filters.PHASE_PRE_LOAD)
+        yield self.get_image()
 
     @gen.coroutine  # NOQA
     def get_image(self):
@@ -143,29 +106,6 @@ class BaseHandler(tornado.web.RequestHandler):
             result = yield self._fetch(
                 self.context.request.image_url
             )
-
-            if not result.successful:
-                if result.loader_error == LoaderResult.ERROR_NOT_FOUND:
-                    self._error(404)
-                    return
-                elif result.loader_error == LoaderResult.ERROR_UPSTREAM:
-                    # Return a Bad Gateway status if the error came from upstream
-                    self._error(502)
-                    return
-                elif result.loader_error == LoaderResult.ERROR_TIMEOUT:
-                    # Return a Gateway Timeout status if upstream timed out (i.e. 599)
-                    self._error(504)
-                    return
-                elif isinstance(result.loader_error, int):
-                    self._error(result.loader_error)
-                    return
-                elif hasattr(result, 'engine_error') and result.engine_error == EngineResult.COULD_NOT_LOAD_IMAGE:
-                    self._error(400)
-                    return
-                else:
-                    self._error(500)
-                    return
-
         except Exception as e:
             msg = '[BaseHandler] get_image failed for url `{url}`. error: `{error}`'.format(
                 url=self.context.request.image_url,
@@ -176,11 +116,26 @@ class BaseHandler(tornado.web.RequestHandler):
 
             if 'cannot identify image file' in e.message:
                 logger.warning(msg)
-                self._error(400)
+                raise tornado.web.HTTPError(400)
             else:
                 logger.error(msg)
-                self._error(500)
-            return
+                raise tornado.web.HTTPError(500)
+
+        if not result.successful:
+            if result.loader_error == LoaderResult.ERROR_NOT_FOUND:
+                raise tornado.web.HTTPError(404)
+            elif result.loader_error == LoaderResult.ERROR_UPSTREAM:
+                # Return a Bad Gateway status if the error came from upstream
+                raise tornado.web.HTTPError(502)
+            elif result.loader_error == LoaderResult.ERROR_TIMEOUT:
+                # Return a Gateway Timeout status if upstream timed out (i.e. 599)
+                raise tornado.web.HTTPError(504)
+            elif isinstance(result.loader_error, int):
+                raise tornado.web.HTTPError(result.loader_error)
+            elif hasattr(result, 'engine_error') and result.engine_error == EngineResult.COULD_NOT_LOAD_IMAGE:
+                raise tornado.web.HTTPError(400)
+            else:
+                raise tornado.web.HTTPError(500)
 
         normalized = result.normalized
         buffer = result.buffer
@@ -190,33 +145,29 @@ class BaseHandler(tornado.web.RequestHandler):
 
         if engine is None:
             if buffer is None:
-                self._error(504)
-                return
+                raise tornado.web.HTTPError(504)
 
             engine = self.context.request.engine
             try:
                 engine.load(buffer, self.context.request.extension)
             except Exception:
-                self._error(504)
-                return
+                raise tornado.web.HTTPError(504)
 
         self.context.transformer = Transformer(self.context)
 
-        def transform():
-            self.normalize_crops(normalized, req, engine)
+        yield self.filters_runner.apply_filters(thumbor.filters.PHASE_AFTER_LOAD)
 
-            if req.meta:
-                self.context.transformer.engine = \
-                    self.context.request.engine = \
-                    JSONEngine(engine, req.image_url, req.meta_callback)
+        self.normalize_crops(normalized, req, engine)
 
-            after_transform_cb = functools.partial(self.after_transform, self.context)
-            self.context.transformer.transform(after_transform_cb)
+        if req.meta:
+            self.context.transformer.engine = \
+                self.context.request.engine = \
+                JSONEngine(engine, req.image_url, req.meta_callback)
 
-        self.filters_runner.apply_filters(thumbor.filters.PHASE_AFTER_LOAD, transform)
+        yield self.context.transformer.transform()
+        yield self.after_transform(self.context)
 
     def normalize_crops(self, normalized, req, engine):
-        new_crops = None
         if normalized and req.should_crop:
             crop_left = req.crop['left']
             crop_top = req.crop['top']
@@ -225,10 +176,7 @@ class BaseHandler(tornado.web.RequestHandler):
 
             actual_width, actual_height = engine.size
 
-            if not req.width and not req.height:
-                actual_width = engine.size[0]
-                actual_height = engine.size[1]
-            elif req.width:
+            if req.width:
                 actual_height = engine.get_proportional_height(engine.size[0])
             elif req.height:
                 actual_width = engine.get_proportional_width(engine.size[1])
@@ -248,12 +196,12 @@ class BaseHandler(tornado.web.RequestHandler):
             req.crop['right'] = new_crops[2]
             req.crop['bottom'] = new_crops[3]
 
+    @gen.coroutine
     def after_transform(self, context):
-        finish_callback = functools.partial(self.finish_request, context)
-        if context.request.extension == '.gif' and context.config.USE_GIFSICLE_ENGINE:
-            finish_callback()
-        else:
-            self.filters_runner.apply_filters(thumbor.filters.PHASE_POST_TRANSFORM, finish_callback)
+        if context.request.extension != '.gif' or not context.config.USE_GIFSICLE_ENGINE:
+            yield self.filters_runner.apply_filters(thumbor.filters.PHASE_POST_TRANSFORM)
+
+        yield self.finish_request(context)
 
     def is_webp(self, context):
         return (context.config.AUTO_WEBP and
@@ -289,11 +237,11 @@ class BaseHandler(tornado.web.RequestHandler):
             else:
                 return False
             while True:
-                l = ord(data[i])
+                skip = ord(data[i])
                 i += 1
-                if not l:
+                if not skip:
                     break
-                i += l
+                i += skip
         return frames > 1
 
     def define_image_type(self, context, result):
@@ -378,38 +326,30 @@ class BaseHandler(tornado.web.RequestHandler):
                             'Last-Updated headers support is disabled.')
 
     @gen.coroutine
-    def finish_request(self, context, result_from_storage=None):
-        if result_from_storage is not None:
-            self._process_result_from_storage(result_from_storage)
+    def finish_request(self, context):
+        should_store = context.config.RESULT_STORAGE_STORES_UNSAFE or not self.context.request.unsafe
 
-            image_extension, content_type = self.define_image_type(context, result_from_storage)
-            self._write_results_to_client(context, result_from_storage, content_type)
+        try:
+            results, content_type = yield context.thread_pool.queue(
+                operation=functools.partial(self._load_results, context),
+            )
+        except Exception as e:
+            logger.exception('[BaseHander.finish_request] %s', e)
+            raise tornado.web.HTTPError(504, 'Error while trying to fetch the image: {}'.format(e))
 
-            return
+        self._write_results_to_client(context, results, content_type)
 
-        should_store = result_from_storage is None and (
-            context.config.RESULT_STORAGE_STORES_UNSAFE or not context.request.unsafe)
+        if should_store:
+            self._store_results(context, results)
 
-        def inner(future):
-            try:
-                future_result = future.result()
-            except Exception as e:
-                logger.exception('[BaseHander.finish_request] %s', e)
-                self._error(500, 'Error while trying to fetch the image: {}'.format(e))
-                return
+        schedule.run_pending()
 
-            results, content_type = future_result
-            self._write_results_to_client(context, results, content_type)
+    @gen.coroutine
+    def finish_request_from_storage(self, context, result_from_storage):
+        yield self._process_result_from_storage(result_from_storage)
 
-            if should_store:
-                self._store_results(context, results)
-
-            schedule.run_pending()
-
-        self.context.thread_pool.queue(
-            operation=functools.partial(self._load_results, context),
-            callback=inner,
-        )
+        image_extension, content_type = self.define_image_type(context, result_from_storage)
+        self._write_results_to_client(context, result_from_storage, content_type)
 
     def _write_results_to_client(self, context, results, content_type):
         max_age = context.config.MAX_AGE
@@ -608,7 +548,10 @@ class BaseHandler(tornado.web.RequestHandler):
             else:
                 self.context.request.engine = self.context.modules.engine
 
-            self.context.request.engine.load(fetch_result.buffer, extension)
+            try:
+                self.context.request.engine.load(fetch_result.buffer, extension)
+            except Exception:
+                pass
 
             if self.context.request.engine.image is None:
                 fetch_result.successful = False
@@ -632,13 +575,11 @@ class BaseHandler(tornado.web.RequestHandler):
 
             storage.put_crypto(url)
         except Exception:
-            fetch_result.successful = False
-        finally:
-            if not fetch_result.successful:
-                raise
-            fetch_result.buffer = None
-            fetch_result.engine = self.context.request.engine
-            raise gen.Return(fetch_result)
+            raise
+
+        fetch_result.buffer = None
+        fetch_result.engine = self.context.request.engine
+        raise gen.Return(fetch_result)
 
     @gen.coroutine
     def get_blacklist_contents(self):
@@ -667,6 +608,37 @@ class BaseHandler(tornado.web.RequestHandler):
 
 
 class ContextHandler(BaseHandler):
+    def prepare(self, *args, **kwargs):
+        super(BaseHandler, self).prepare(*args, **kwargs)
+
+        if not hasattr(self, 'context'):
+            return
+
+        self._response_ext = None
+        self._response_length = None
+
+        self._response_start = datetime.datetime.now()
+        self.context.metrics.incr('response.count')
+
+    def on_finish(self, *args, **kwargs):
+        super(BaseHandler, self).on_finish(*args, **kwargs)
+
+        if not hasattr(self, 'context'):
+            return
+
+        total_time = (datetime.datetime.now() - self._response_start).total_seconds() * 1000
+        status = self.get_status()
+        self.context.metrics.timing('response.time', total_time)
+        self.context.metrics.timing('response.time.{0}'.format(status), total_time)
+        self.context.metrics.incr('response.status.{0}'.format(status))
+
+        if self._response_ext is not None:
+            ext = self._response_ext
+            self.context.metrics.incr('response.format{0}'.format(ext))
+            self.context.metrics.timing('response.time{0}'.format(ext), total_time)
+            if self._response_length is not None:
+                self.context.metrics.incr('response.bytes{0}'.format(ext), self._response_length)
+
     def initialize(self, context):
         self.context = Context(
             server=context.server,
@@ -710,23 +682,21 @@ class ImageApiHandler(ContextHandler):
         try:
             engine.load(body, None)
         except IOError:
-            self._error(415, 'Unsupported Media Type')
-            return False
+            raise tornado.web.HTTPError(415, 'Unsupported Media Type')
 
         # Check weight constraints
         if (conf.UPLOAD_MAX_SIZE != 0 and len(self.request.body) > conf.UPLOAD_MAX_SIZE):
-            self._error(
+            raise tornado.web.HTTPError(
                 412,
                 'Image exceed max weight (Expected : %s, Actual : %s)' % (conf.UPLOAD_MAX_SIZE, len(self.request.body)))
-            return False
 
         # Check size constraints
         size = engine.size
         if (conf.MIN_WIDTH > size[0] or conf.MIN_HEIGHT > size[1]):
-            self._error(
+            raise tornado.web.HTTPError(
                 412,
                 'Image is too small (Expected: %s/%s , Actual : %s/%s) % (conf.MIN_WIDTH, conf.MIN_HEIGHT, size[0], size[1])')
-            return False
+
         return True
 
     def write_file(self, id, body):

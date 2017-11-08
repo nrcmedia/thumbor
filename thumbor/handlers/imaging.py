@@ -28,16 +28,16 @@ class ImagingHandler(ContextHandler):
     def check_image(self, kw):
         if self.context.config.MAX_ID_LENGTH > 0:
             # Check if an image with an uuid exists in storage
-            exists = yield gen.maybe_future(self.context.modules.storage.exists(kw['image'][:self.context.config.MAX_ID_LENGTH]))
+            image_key = kw['image'][:self.context.config.MAX_ID_LENGTH]
+            exists = yield gen.maybe_future(self.context.modules.storage.exists(image_key))
             if exists:
-                kw['image'] = kw['image'][:self.context.config.MAX_ID_LENGTH]
+                kw['image'] = image_key
 
         url = self.request.path
 
         kw['image'] = quote(kw['image'].encode('utf-8'))
         if not self.validate(kw['image']):
-            self._error(400, 'No original image was specified in the given URL')
-            return
+            raise tornado.web.HTTPError(400, 'No original image was specified in the given URL')
 
         kw['request'] = self.request
         self.context.request = RequestParameters(**kw)
@@ -46,18 +46,18 @@ class ImagingHandler(ContextHandler):
         has_both = self.context.request.unsafe and self.context.request.hash
 
         if has_none or has_both:
-            self._error(400, 'URL does not have hash or unsafe, or has both: %s' % url)
-            return
+            raise tornado.web.HTTPError(400, 'URL does not have hash or unsafe, or has both: %s' % url)
 
         if self.context.request.unsafe and not self.context.config.ALLOW_UNSAFE_URL:
-            self._error(400, 'URL has unsafe but unsafe is not allowed by the config: %s' % url)
-            return
+            raise tornado.web.HTTPError(400, 'URL has unsafe but unsafe is not allowed by the config: %s' % url)
 
         if self.context.config.USE_BLACKLIST:
             blacklist = yield self.get_blacklist_contents()
             if self.context.request.image_url in blacklist:
-                self._error(400, 'Source image url has been blacklisted: %s' % self.context.request.image_url)
-                return
+                raise tornado.web.HTTPError(
+                    400,
+                    'Source image url has been blacklisted: %s' % self.context.request.image_url
+                )
 
         url_signature = self.context.request.hash
         if url_signature:
@@ -66,8 +66,7 @@ class ImagingHandler(ContextHandler):
             try:
                 quoted_hash = quote(self.context.request.hash)
             except KeyError:
-                self._error(400, 'Invalid hash: %s' % self.context.request.hash)
-                return
+                raise tornado.web.HTTPError(400, 'Invalid hash: %s' % self.context.request.hash)
 
             url_to_validate = url.replace('/%s/' % self.context.request.hash, '') \
                 .replace('/%s/' % quoted_hash, '')
@@ -82,15 +81,14 @@ class ImagingHandler(ContextHandler):
                     valid = signer.validate(url_signature, url_to_validate)
 
             if not valid:
-                self._error(400, 'Malformed URL: %s' % url)
-                return
+                raise tornado.web.HTTPError(500, 'Malformed URL')
 
-        self.execute_image_operations()
+        yield self.execute_image_operations()
 
-    @tornado.web.asynchronous
+    @gen.coroutine
     def get(self, **kw):
-        self.check_image(kw)
+        yield self.check_image(kw)
 
-    @tornado.web.asynchronous
+    @gen.coroutine
     def head(self, **kw):
-        self.check_image(kw)
+        yield self.check_image(kw)
