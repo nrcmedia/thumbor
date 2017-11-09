@@ -78,7 +78,8 @@ def return_contents(response, url, callback, context, req_start=None):
         if response.code == 599:
             # Return a Gateway Timeout status downstream if upstream times out
             result.error = LoaderResult.ERROR_TIMEOUT
-        elif response.code == 403: # and auto blacklist True
+        elif response.code == 403 and context.config.USE_AUTO_BLACKLIST: 
+            # a 403 on S3 means file not found,
             result.error = LoaderResult.ERROR_FORBIDDEN
         else:
             result.error = LoaderResult.ERROR_NOT_FOUND
