@@ -92,6 +92,19 @@ Config.define(
     'Indicates whether thumbor should enable blacklist functionality to prevent processing certain images.', 'Imaging')
 
 Config.define(
+    'USE_AUTO_BLACKLIST', False,
+    'Indicates wheter a remote 403 should result in an entry on the blacklist for that URL',
+'Imaging')
+
+Config.define(
+    'USE_FILE_LOCK', False, 
+    'Indicates to use a simple lockfile to prevent double work', 'Imaging')
+
+Config.define(
+    'FILE_LOCK_AGE_SECONDS', 10,
+    'Max time to wait for a lock to expire', 'Imaging')
+
+Config.define(
     'ENGINE_THREADPOOL_SIZE', 0,
     'Size of the thread pool used for image transformations.  The default value is 0 (don\'t use a threadpoool. '
     'Increase this if you are seeing your IOLoop getting blocked (often indicated by your upstream HTTP '
