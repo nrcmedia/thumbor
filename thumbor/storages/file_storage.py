@@ -152,5 +152,5 @@ class Storage(storages.BaseStorage):
             path_on_filesystem = self.path_on_filesystem(path)
         if os.path.exists(path_on_filesystem):
             timediff = datetime.now() - datetime.fromtimestamp(getmtime(path_on_filesystem))
-            return timediff.seconds < 60 # voorlopig een minuut
+            return timediff.seconds < self.context.config.FILE_LOCK_AGE_SECONDS
         return False
