@@ -30,7 +30,6 @@ class BlacklistHandler(ContextHandler):
         blacklist = yield self.get_blacklist_contents()
         blacklist += self.request.query + "\n"
         logger.debug('Adding to blacklist: %s' % self.request.query)
-        print('Adding to hh blacklist: %s' % self.request.query)
         self.context.modules.storage.put('blacklist.txt', blacklist)
         self.set_status(200)
 
