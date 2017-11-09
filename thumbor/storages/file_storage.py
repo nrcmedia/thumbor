@@ -137,3 +137,20 @@ class Storage(storages.BaseStorage):
             return False
         timediff = datetime.now() - datetime.fromtimestamp(getmtime(path))
         return timediff.total_seconds() > self.context.config.STORAGE_EXPIRATION_SECONDS
+
+    def get_file_lock(self, path):
+        lock_abspath = self.path_on_filesystem(path)
+        lock = '%s.lock' % splitext(lock_abspath)[0]
+        file_dir_abspath = dirname(lock_abspath)
+        self.ensure_dir(file_dir_abspath)
+        with open(lock, 'w+') as _file:
+            _file.write('lock')
+            _file.close()
+
+    def lock_exists(self, path, path_on_filesystem=None):
+        if path_on_filesystem is None:
+            path_on_filesystem = self.path_on_filesystem(path)
+        if os.path.exists(path_on_filesystem):
+            timediff = datetime.now() - datetime.fromtimestamp(getmtime(path_on_filesystem))
+            return timediff.seconds < 60 # voorlopig een minuut
+        return False
