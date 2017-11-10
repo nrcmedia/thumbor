@@ -31,7 +31,6 @@ from thumbor.transformer import Transformer
 from thumbor.utils import logger, CONTENT_TYPE, EXTENSION
 import thumbor.filters
 
-
 HTTP_DATE_FMT = "%a, %d %b %Y %H:%M:%S GMT"
 
 
@@ -146,6 +145,13 @@ class BaseHandler(tornado.web.RequestHandler):
             if not result.successful:
                 if result.loader_error == LoaderResult.ERROR_NOT_FOUND:
                     self._error(404)
+                    return
+                elif result.loader_error == LoaderResult.ERROR_FORBIDDEN:
+                    self._error(404)
+                    blacklist = yield self.get_blacklist_contents()
+                    blacklist += self.context.request.image_url + "\n"
+                    logger.debug('403 Adding to blacklist: %s' % self.context.request.image_url)
+                    self.context.modules.storage.put('blacklist.txt', blacklist)
                     return
                 elif result.loader_error == LoaderResult.ERROR_UPSTREAM:
                     # Return a Bad Gateway status if the error came from upstream
@@ -585,7 +591,6 @@ class BaseHandler(tornado.web.RequestHandler):
     @gen.coroutine
     def get_blacklist_contents(self):
         filename = 'blacklist.txt'
-
         exists = yield gen.maybe_future(self.context.modules.storage.exists(filename))
         if exists:
             blacklist = yield gen.maybe_future(self.context.modules.storage.get(filename))

@@ -84,8 +84,16 @@ class ImagingHandler(ContextHandler):
             if not valid:
                 self._error(400, 'Malformed URL: %s' % url)
                 return
+        # dan zet men hier een lock
+        if self.context.config.USE_FILE_LOCK:
+            if not self.context.modules.storage.lock_exists(self.context.request.image_url):
+                self.context.modules.storage.get_file_lock(self.context.request.image_url)
+            else: 
+                self._error(409, "Conflict URL: %s already processing." % url)
+                return
 
         self.execute_image_operations()
+        # die men hier weer verwijdert.
 
     @tornado.web.asynchronous
     def get(self, **kw):

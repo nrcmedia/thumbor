@@ -32,3 +32,11 @@ class BlacklistHandler(ContextHandler):
         logger.debug('Adding to blacklist: %s' % self.request.query)
         self.context.modules.storage.put('blacklist.txt', blacklist)
         self.set_status(200)
+
+    @classmethod
+    def blacklist_image(self, url):
+        blacklist = yield self.get_blacklist_contents()
+        blacklist += url + "\n"
+        logger.debug('-bi- Adding to blacklist: %s' % url)
+        self.context.modules.storage.put('blacklist.txt', blacklist)
+
