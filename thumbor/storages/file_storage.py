@@ -150,7 +150,8 @@ class Storage(storages.BaseStorage):
     def lock_exists(self, path, path_on_filesystem=None):
         if path_on_filesystem is None:
             path_on_filesystem = self.path_on_filesystem(path)
-        if os.path.exists(path_on_filesystem):
-            timediff = datetime.now() - datetime.fromtimestamp(getmtime(path_on_filesystem))
+        lock = '%s.lock' % path_on_filesystem
+        if os.path.exists(lock):
+            timediff = datetime.now() - datetime.fromtimestamp(getmtime(lock))
             return timediff.seconds < self.context.config.FILE_LOCK_AGE_SECONDS
         return False

@@ -86,8 +86,9 @@ class ImagingHandler(ContextHandler):
                 return
         # dan zet men hier een lock
         if self.context.config.USE_FILE_LOCK:
-            if not self.context.modules.storage.lock_exists(self.context.request.image_url):
-                self.context.modules.storage.get_file_lock(self.context.request.image_url)
+            lockme = "%s%s" % (self.context.request.hash, self.context.request.image_url)
+            if not self.context.modules.storage.lock_exists(lockme):
+                self.context.modules.storage.get_file_lock(lockme)
             else: 
                 self._error(409, "Conflict URL: %s already processing." % url)
                 return
