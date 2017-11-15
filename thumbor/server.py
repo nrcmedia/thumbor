@@ -13,6 +13,7 @@ import sys
 import logging
 import logging.config
 import schedule
+import warnings
 
 import os
 import socket
@@ -27,6 +28,7 @@ from thumbor.importer import Importer
 from thumbor.context import Context
 from thumbor.utils import which
 
+from PIL import Image
 
 def get_as_integer(value):
     try:
@@ -74,6 +76,8 @@ def validate_config(config, server_parameters):
             'No security key was found for this instance of thumbor. ' +
             'Please provide one using the conf file or a security key file.')
 
+    if config.ENGINE or config.USE_GIFSICLE_ENGINE:
+        warnings.simplefilter('error', Image.DecompressionBombWarning)
     if config.USE_GIFSICLE_ENGINE:
         server_parameters.gifsicle_path = which('gifsicle')
         if server_parameters.gifsicle_path is None:
