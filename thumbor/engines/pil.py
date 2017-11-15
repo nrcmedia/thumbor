@@ -8,7 +8,6 @@
 # http://www.opensource.org/licenses/mit-license
 # Copyright (c) 2011 globo.com thumbor@googlegroups.com
 
-import warnings
 import os
 from tempfile import mkstemp
 from subprocess import Popen, PIPE
@@ -57,7 +56,7 @@ class Engine(BaseEngine):
         if self.context and self.context.config.MAX_PIXELS:
             Image.MAX_IMAGE_PIXELS = self.context.config.MAX_PIXELS
         # Error on Image.open when image pixel count is above MAX_IMAGE_PIXELS
-        warnings.simplefilter('error', Image.DecompressionBombWarning)
+        #warnings.simplefilter('error', Image.DecompressionBombWarning)
 
     def gen_image(self, size, color):
         if color == 'transparent':
