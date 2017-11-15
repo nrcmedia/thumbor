@@ -115,6 +115,7 @@ def run_server(application, context):
     else:
         server.bind(context.server.port, context.server.ip)
 
+    sys.setrecursionlimit(2500)
     server.start(1)
 
 
