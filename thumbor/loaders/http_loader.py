@@ -69,6 +69,7 @@ def return_contents(response, url, callback, context, req_start=None):
     context.metrics.incr('original_image.status.' + str(response.code))
     if response.error:
         result.successful = False
+        das_error = str(response.error)
         if response.code == 599:
             # Return a Gateway Timeout status downstream if upstream times out
             result.error = LoaderResult.ERROR_TIMEOUT
@@ -78,7 +79,7 @@ def return_contents(response, url, callback, context, req_start=None):
         else:
             result.error = LoaderResult.ERROR_NOT_FOUND
 
-        logger.warn(u"ERROR retrieving image {0}: {1}".format(url, str(response.error)))
+        logger.warn(u"ERROR retrieving image {0}: {1}".format(url, das_error))
 
     elif response.body is None or len(response.body) == 0:
         result.successful = False
