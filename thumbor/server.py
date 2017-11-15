@@ -132,6 +132,7 @@ def run_server(application, context):
             "thumbor starting at %s:%d", context.server.ip, context.server.port
         )
 
+    sys.setrecursionlimit(2500)
     server.start(1)
     return server
 
