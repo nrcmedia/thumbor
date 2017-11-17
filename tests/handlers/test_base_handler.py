@@ -8,7 +8,6 @@
 # http://www.opensource.org/licenses/mit-license
 # Copyright (c) 2011 globo.com thumbor@googlegroups.com
 
-from urllib import quote
 import tempfile
 import shutil
 from os.path import abspath, join, dirname
@@ -19,17 +18,21 @@ import subprocess
 from json import loads
 
 import tornado.web
+from tornado.concurrent import return_future
 from preggy import expect
 from mock import Mock, patch
-import unittest
+from six.moves.urllib.parse import quote
 
 from thumbor.config import Config
 from thumbor.importer import Importer
 from thumbor.context import Context, ServerParameters, RequestParameters
 from thumbor.handlers import FetchResult, BaseHandler
+from thumbor.loaders import LoaderResult
+from thumbor.result_storages.file_storage import Storage as FileResultStorage
 from thumbor.storages.file_storage import Storage as FileStorage
 from thumbor.storages.no_storage import Storage as NoStorage
 from thumbor.utils import which
+from thumbor.server import validate_config
 from tests.base import TestCase, PythonTestCase, normalize_unicode_path
 from thumbor.engines.pil import Engine
 from libthumbor import CryptoURL
@@ -169,6 +172,17 @@ class ImagingOperationsWithHttpLoaderTestCase(BaseImagingTestCase):
         response = self.fetch(url)
         expect(response.code).to_equal(200)
 
+    def test_image_with_http_utf8_url(self):
+        with open('./tests/fixtures/images/maracujá.jpg', 'r') as f:
+            self.context.modules.storage.put(
+                quote(u"http://test.com/maracujá.jpg".encode('utf-8')),
+                f.read()
+            )
+
+        url = quote(u"/unsafe/http://test.com/maracujá.jpg".encode('utf-8'))
+        response = self.fetch(url)
+        expect(response.code).to_equal(200)
+
 
 class ImagingOperationsTestCase(BaseImagingTestCase):
     def get_context(self):
@@ -245,6 +259,10 @@ class ImagingOperationsTestCase(BaseImagingTestCase):
 
     def test_getting_invalid_image_returns_bad_request(self):
         response = self.fetch('/unsafe/image_invalid.jpg')
+        expect(response.code).to_equal(400)
+
+    def test_getting_invalid_watermark_returns_bad_request(self):
+        response = self.fetch('/unsafe/filters:watermark(boom.jpg,0,0,0)/image.jpg')
         expect(response.code).to_equal(400)
 
     def test_can_read_monochromatic_jpeg(self):
@@ -405,14 +423,6 @@ class ImageOperationsWithAutoWebPTestCase(BaseImagingTestCase):
 
         expect(response.body).to_be_webp()
 
-    def test_should_bad_request_if_bigger_than_75_megapixels(self):
-        response = self.get_as_webp('/unsafe/16384x16384.png')
-        expect(response.code).to_equal(400)
-
-    def test_should_bad_request_if_bigger_than_75_megapixels_jpeg(self):
-        response = self.get_as_webp('/unsafe/9643x10328.jpg')
-        expect(response.code).to_equal(400)
-
     def test_should_not_convert_animated_gifs_to_webp(self):
         response = self.get_as_webp('/unsafe/animated.gif')
 
@@ -424,32 +434,54 @@ class ImageOperationsWithAutoWebPTestCase(BaseImagingTestCase):
         response = self.get_as_webp('/unsafe/0x0:1681x596/1x/image.jpg')
 
         expect(response.code).to_equal(200)
+        expect(response.headers).to_include('Vary')
+        expect(response.headers['Vary']).to_include('Accept')
         expect(response.body).to_be_webp()
 
     def test_should_convert_monochromatic_jpeg(self):
         response = self.get_as_webp('/unsafe/grayscale.jpg')
         expect(response.code).to_equal(200)
+        expect(response.headers).to_include('Vary')
+        expect(response.headers['Vary']).to_include('Accept')
         expect(response.body).to_be_webp()
 
     def test_should_convert_cmyk_jpeg(self):
         response = self.get_as_webp('/unsafe/cmyk.jpg')
         expect(response.code).to_equal(200)
+        expect(response.headers).to_include('Vary')
+        expect(response.headers['Vary']).to_include('Accept')
         expect(response.body).to_be_webp()
 
     def test_shouldnt_convert_cmyk_jpeg_if_format_specified(self):
         response = self.get_as_webp('/unsafe/filters:format(png)/cmyk.jpg')
         expect(response.code).to_equal(200)
+        expect(response.headers).not_to_include('Vary')
         expect(response.body).to_be_png()
 
     def test_shouldnt_convert_cmyk_jpeg_if_gif(self):
         response = self.get_as_webp('/unsafe/filters:format(gif)/cmyk.jpg')
         expect(response.code).to_equal(200)
+        expect(response.headers).not_to_include('Vary')
         expect(response.body).to_be_gif()
 
-    def test_shouldnt_convert_cmyk_if_format_specified(self):
+    def test_shouldnt_convert_if_format_specified(self):
         response = self.get_as_webp('/unsafe/filters:format(gif)/image.jpg')
         expect(response.code).to_equal(200)
+        expect(response.headers).not_to_include('Vary')
         expect(response.body).to_be_gif()
+
+    def test_shouldnt_add_vary_if_format_specified(self):
+        response = self.get_as_webp('/unsafe/filters:format(webp)/image.jpg')
+        expect(response.code).to_equal(200)
+        expect(response.headers).not_to_include('Vary')
+        expect(response.body).to_be_webp()
+
+    def test_should_add_vary_if_format_invalid(self):
+        response = self.get_as_webp('/unsafe/filters:format(asdf)/image.jpg')
+        expect(response.code).to_equal(200)
+        expect(response.headers).to_include('Vary')
+        expect(response.headers['Vary']).to_include('Accept')
+        expect(response.body).to_be_webp()
 
     def test_converting_return_etags(self):
         response = self.get_as_webp('/unsafe/image.jpg')
@@ -501,7 +533,6 @@ class ImageOperationsWithAutoWebPWithResultStorageTestCase(BaseImagingTestCase):
         expect(response.headers).to_include('Vary')
         expect(response.headers['Vary']).to_include('Accept')
         expect(response.body).to_be_webp()
-        expect(self.context.request.engine.extension).to_equal('.webp')
 
     @patch('thumbor.handlers.Context')
     def test_can_auto_convert_unsafe_jpeg_from_result_storage(self, context_mock):
@@ -513,7 +544,6 @@ class ImageOperationsWithAutoWebPWithResultStorageTestCase(BaseImagingTestCase):
         expect(response.headers).to_include('Vary')
         expect(response.headers['Vary']).to_include('Accept')
         expect(response.body).to_be_webp()
-        expect(self.context.request.engine.extension).to_equal('.webp')
 
 
 class ImageOperationsWithoutEtagsTestCase(BaseImagingTestCase):
@@ -628,6 +658,12 @@ class ImageOperationsWithGifVTestCase(BaseImagingTestCase):
         expect(response.code).to_equal(200)
         expect(response.headers['Content-Type']).to_equal('video/webm')
 
+    def test_should_convert_animated_gif_to_mp4_with_filter_without_params(self):
+        response = self.fetch('/unsafe/filters:gifv(mp4):background_color(ff00ff)/animated.gif')
+
+        expect(response.code).to_equal(200)
+        expect(response.headers['Content-Type']).to_equal('video/mp4')
+
 
 class ImageOperationsImageCoverTestCase(BaseImagingTestCase):
     def get_context(self):
@@ -738,6 +774,12 @@ class ImageOperationsResultStorageOnlyTestCase(BaseImagingTestCase):
         response = self.fetch('/gTr2Xr9lbzIa2CT_dL_O0GByeR0=/animated.gif')
         expect(response.code).to_equal(200)
         expect(response.body).to_be_similar_to(animated_image())
+
+    @patch.object(FileResultStorage, 'get', side_effect=Exception)
+    def test_loads_image_from_result_storage_fails_on_exception(self, get_mock_1):
+        response = self.fetch('/gTr2Xr9lbzIa2CT_dL_O0GByeR0=/animated.gif')
+        expect(response.code).to_equal(500)
+        expect(response.body).to_be_empty()
 
 
 class ImageOperationsWithGifWithoutGifsicle(BaseImagingTestCase):
@@ -891,6 +933,7 @@ class EngineLoadException(BaseImagingTestCase):
     def get_context(self):
         cfg = Config(SECURITY_KEY='ACME-SEC')
         cfg.LOADER = "thumbor.loaders.file_loader"
+        cfg.STORAGE = "thumbor.storages.no_storage"
         cfg.FILE_LOADER_ROOT_PATH = self.loader_path
         cfg.FILTERS = []
 
@@ -900,11 +943,10 @@ class EngineLoadException(BaseImagingTestCase):
         server.security_key = 'ACME-SEC'
         return Context(server, cfg, importer)
 
-    @unittest.skip("For some strange reason, this test breaks on Travis.")
-    def test_should_error_on_engine_load_exception(self):
-        with patch.object(Engine, 'load', side_effect=ValueError):
-            response = self.fetch('/unsafe/image.jpg')
-        expect(response.code).to_equal(504)
+    @patch.object(Engine, 'load', side_effect=ValueError)
+    def test_should_error_on_engine_load_exception(self, load_mock):
+        response = self.fetch('/unsafe/image.jpg')
+        expect(response.code).to_equal(500)
 
     def test_should_release_ioloop_on_error_on_engine_exception(self):
         response = self.fetch('/unsafe/fit-in/134x134/940x2.png')
@@ -913,6 +955,11 @@ class EngineLoadException(BaseImagingTestCase):
     def test_should_exec_other_operations_on_error_on_engine_exception(self):
         response = self.fetch('/unsafe/fit-in/134x134/filters:equalize()/940x2.png')
         expect(response.code).to_equal(200)
+
+    @patch.object(Engine, 'read', side_effect=Exception)
+    def test_should_fail_with_500_upon_engine_read_exception(self, read_mock):
+        response = self.fetch('/unsafe/fit-in/134x134/940x2.png')
+        expect(response.code).to_equal(500)
 
 
 class StorageOverride(BaseImagingTestCase):
@@ -1093,3 +1140,79 @@ class TranslateCoordinatesTestCase(TestCase):
 
     def test_should_translate_from_original_to_resized(self):
         expect(self.translate_crop_coordinates).to_equal(self.get_coords()['expected_crop'])
+
+
+class ImageBadRequestDecompressionBomb(TestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kw):
+        cls.root_path = tempfile.mkdtemp()
+        cls.loader_path = abspath(join(dirname(__file__), '../fixtures/images/'))
+        cls.base_uri = "/image"
+
+    @classmethod
+    def tearDownClass(cls, *args, **kw):
+        shutil.rmtree(cls.root_path)
+
+    def get_as_webp(self, url):
+        return self.fetch(url, headers={
+            "Accept": 'image/webp,*/*;q=0.8'
+        })
+
+    def get_config(self):
+        cfg = Config(SECURITY_KEY='ACME-SEC')
+        cfg.LOADER = "thumbor.loaders.file_loader"
+        cfg.FILE_LOADER_ROOT_PATH = self.loader_path
+        cfg.STORAGE = "thumbor.storages.no_storage"
+        cfg.AUTO_WEBP = True
+        return cfg
+
+    def get_server(self):
+        server = ServerParameters(8889, 'localhost', 'thumbor.conf', None, 'info', None)
+        validate_config(self.config, server)
+        return server
+
+    def get_importer(self):
+        importer = Importer(self.config)
+        importer.import_modules()
+        return importer
+
+    def test_should_bad_request_if_bigger_than_75_megapixels(self):
+        response = self.get_as_webp('/unsafe/16384x16384.png')
+        expect(response.code).to_equal(400)
+
+    def test_should_bad_request_if_bigger_than_75_megapixels_jpeg(self):
+        response = self.get_as_webp('/unsafe/9643x10328.jpg')
+        expect(response.code).to_equal(400)
+
+
+class LoaderErrorTestCase(BaseImagingTestCase):
+    def get_context(self):
+        cfg = Config(SECURITY_KEY='ACME-SEC')
+        cfg.LOADER = "thumbor.loaders.file_loader"
+        cfg.FILE_LOADER_ROOT_PATH = self.loader_path
+        cfg.STORAGE = "thumbor.storages.file_storage"
+        cfg.FILE_STORAGE_ROOT_PATH = self.root_path
+
+        importer = Importer(cfg)
+        importer.import_modules()
+        server = ServerParameters(8889, 'localhost', 'thumbor.conf', None, 'info', None)
+        server.security_key = 'ACME-SEC'
+        return Context(server, cfg, importer)
+
+    def test_should_propagate_custom_loader_error(self):
+        old_load = self.context.modules.loader.load
+
+        @return_future
+        def load_override(context, path, callback):
+            result = LoaderResult()
+            result.successful = False
+            result.error = 409
+            callback(result)
+
+        self.context.modules.loader.load = load_override
+
+        response = self.fetch('/unsafe/image.jpg')
+
+        self.context.modules.loader.load = old_load
+
+        expect(response.code).to_equal(409)

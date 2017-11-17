@@ -40,7 +40,6 @@ EXTENSION = {
 
 logger = logging.getLogger('thumbor')
 
-
 class on_exception(object):
 
     def __init__(self, callback, exception_class=Exception):

@@ -12,7 +12,9 @@ from __future__ import unicode_literals, absolute_import
 from struct import pack
 from os.path import abspath, join, dirname
 
+import piexif
 from unittest import TestCase
+from xml.etree.ElementTree import ParseError
 
 import mock
 
@@ -137,6 +139,69 @@ class BaseEngineTestCase(TestCase):
         mime = self.engine.get_mimetype(buffer)
         expect(mime).to_equal('image/tiff')
 
+    def test_can_identify_svg_with_xml_namespace_other_than_w3(self):
+        buffer = """<svg width="10px" height="20px" viewBox="0 0 10 20"
+                    xmlns="http://ns.foo.com/FooSVGViewerExtensions/3.0/">
+                        <rect width="100%" height="10" x="0" y="0"/>
+                    </svg>""".encode('utf-8')
+        mime = self.engine.get_mimetype(buffer)
+        expect(mime).to_equal('image/svg+xml')
+
+    def test_can_identify_svg_with_xml_preamble_and_lots_of_gibberish(self):
+        buffer = """<?xml version="1.0" encoding="utf-8"?>
+                    <!-- Generator: Proprietary Drawing Software, SVG Export Plug-In. SVG Version: 3.0.0 Build 77) -->
+                    <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd" [
+                        <!ENTITY ns_flows "http://ns.foo.com/Flows/1.0/">
+                        <!ENTITY ns_extend "http://ns.foo.com/Extensibility/1.0/">
+                        <!ENTITY ns_ai "http://ns.foo.com/foobar/10.0/">
+                        <!ENTITY ns_graphs "http://ns.foo.com/Graphs/1.0/">
+                        <!ENTITY ns_vars "http://ns.foo.com/Variables/1.0/">
+                        <!ENTITY ns_imrep "http://ns.foo.com/ImageReplacement/1.0/">
+                        <!ENTITY ns_sfw "http://ns.foo.com/SaveForWeb/1.0/">
+                        <!ENTITY ns_custom "http://ns.foo.com/GenericCustomNamespace/1.0/">
+                        <!ENTITY ns_foo_xpath "http://ns.foo.com/XPath/1.0/">
+                        <!ENTITY ns_svg "http://www.w3.org/2000/svg">
+                        <!ENTITY ns_xlink "http://www.w3.org/1999/xlink">
+                    ]>
+                    <svg width="10px" height="20px" viewBox="0 0 10 20"
+                    xmlns="http://www.w3.org/2000/svg">
+                        <rect width="100%" height="10" x="0" y="0"/>
+                    </svg>""".encode('utf-8')
+        mime = self.engine.get_mimetype(buffer)
+        expect(mime).to_equal('image/svg+xml')
+
+    def test_convert_svg_already_converted_to_png(self):
+        svg_buffer = """<svg width="10px" height="20px" viewBox="0 0 10 20"
+                    xmlns="http://www.w3.org/2000/svg">
+                        <rect width="100%" height="10" x="0" y="0"/>
+                    </svg>"""
+        png_buffer = self.engine.convert_svg_to_png(svg_buffer)
+        png_buffer_dupe = self.engine.convert_svg_to_png(png_buffer)
+        expect(self.engine.extension).to_equal('.png')
+        expect(png_buffer).to_equal(png_buffer_dupe)
+
+    def test_convert_not_well_formed_svg_to_png(self):
+        buffer = """<<svg width="10px" height="20px" viewBox="0 0 10 20"
+                    xmlns="http://www.w3.org/2000/svg">
+                        <rect width="100%" height="10" x="0" y="0"/>
+                    </svg>""".encode('utf-8')
+        with expect.error_to_happen(ParseError):
+            self.engine.convert_svg_to_png(buffer)
+        expect(self.engine.extension).to_be_null()
+
+    def test_get_orientation_no_exif(self):
+        expect(hasattr(self.engine, 'exif')).to_be_false()
+        expect(self.engine.get_orientation()).to_be_null()
+
+    def test_get_orientation_null_exif(self):
+        self.engine.exif = None
+        expect(self.engine.get_orientation()).to_be_null()
+
+    def test_get_orientation_without_orientation_in_exif(self):
+        self.engine.exif = piexif.load(exif_str(1))
+        self.engine.exif['0th'].pop(piexif.ImageIFD.Orientation, None)
+        expect(self.engine.get_orientation()).to_be_null()
+
     def test_get_orientation(self):
         self.engine.exif = exif_str(1)
         expect(self.engine.get_orientation()).to_equal(1)
@@ -147,6 +212,16 @@ class BaseEngineTestCase(TestCase):
         self.engine.exif = exif_str(8)
         expect(self.engine.get_orientation()).to_equal(8)
         expect(self.engine.get_orientation()).to_equal(8)
+
+    def test_reorientate_no_exif(self):
+        expect(hasattr(self.engine, 'exif')).to_be_false()
+        self.engine.reorientate()
+        expect(self.engine.get_orientation()).to_be_null()
+
+    def test_reorientate_null_exif(self):
+        self.engine.exif = None
+        self.engine.reorientate()
+        expect(self.engine.get_orientation()).to_be_null()
 
     def test_reorientate1(self):
         # No rotation
