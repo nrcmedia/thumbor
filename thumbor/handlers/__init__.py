@@ -13,7 +13,6 @@ import functools
 import datetime
 import re
 import pytz
-import schedule
 import traceback
 
 import tornado.web
@@ -85,7 +84,8 @@ class BaseHandler(tornado.web.RequestHandler):
                 self.context.metrics.incr('response.bytes{0}'.format(ext), self._response_length)
 
         self.context.request_handler = None
-        self.context.request.engine = None
+        if hasattr(self.context, 'request'):
+            self.context.request.engine = None
         self.context.modules = None
         self.context.filters_factory = None
         self.context.metrics = None
