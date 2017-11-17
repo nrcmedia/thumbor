@@ -49,7 +49,7 @@ post <http://tech.yipit.com/2013/01/03/how-yipit-scales-thumbnailing-with-thumbo
 
 .. image:: images/oony.png
 
-http://oony.com is using thumbor to serve thumbnail images behing
+http://oony.com is using thumbor to serve thumbnail images behind
 Amazon's Cloudfront CDN.
 
     We've previously adapted the size of the thumbnails to what was
@@ -116,13 +116,13 @@ slogan into an original tee and order it immediately.
 
 .. figure:: https://lh4.googleusercontent.com/gHam5ielak_FmlYLnl9ONZSD_LXyp8SLS1LbU9xt7WedO3BiX8KVGGUmcYXEX7UB__14GA=w1883-h1153
    :alt: just watch
-   
+
 `Just Watch <http://www.justwatch.com>`__
 
     At JustWatch, we're big fans of Thumbor as well.
 
     We're serving it behind a CloudFront custom origin like many others, and features like WebP and smart cropping saved us huge amounts of time and bandwidth.
-    
+
 .. figure:: https://cloud.githubusercontent.com/assets/306014/14242873/8771528a-fa52-11e5-894c-0cdbf66580ce.png
    :alt: Ridelink
 

@@ -95,7 +95,7 @@ Using it is simple, just change your configuration in thumbor.conf:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 `Riak <http://basho.com/riak/>`__ is a distributed document oriented
-database implementing the consistent hashing algorythm from the Dynanmo
+database implementing the consistent hashing algorithm from the Dynanmo
 publication by Amazon.
 
 This module provide support for Riak as a large auto replicant key/value
@@ -169,6 +169,30 @@ Configuration in thumbor.conf:
 
 For monitors and keys, the values ​​used are those defined in the
 configuration file ceph.conf.
+
+Metrics
+--------
+
+`thumbor\_prometheus <https://github.com/thumbor-community/prometheus>`__ (by `Simon Effenberg <https://github.com/savar>`__)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+`Prometheus <https://prometheus.io/>`__ a monitoring and alerting toolkit.
+
+This module provide support for Prometheus as metrics collector.
+
+-  *URL:* https://github.com/thumbor-community/prometheus
+-  *Installing:*
+   ``pip install tc_prometheus``
+
+Configuration in thumbor.conf:
+
+::
+
+    ################################# Extensibility #################################
+    METRICS = 'tc_prometheus.metrics.prometheus_metrics'
+
+    # optional with defaults
+    PROMETHEUS_SCRAPE_PORT = 8000 # Port the prometheus client should listen on
 
 Extensions
 ----------

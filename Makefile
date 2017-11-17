@@ -1,20 +1,27 @@
 COMMIT := $(shell git rev-parse HEAD)
+OS := $(shell uname)
 
 run: compile_ext
 	@thumbor -l debug -d
 
 setup:
+    ifeq ($(OS), xx)
+	    @$(MAKE) setup_mac
+    else
+	    @echo
+	    @echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+	    @echo ">>> MAKE SURE SYSTEM DEPENDENCIES IS INSTALLED IF RUNNING TESTS <<<<<<<<<<<<<<<"
+	    @echo ">>> imagemagick webp opencv coreutils gifsicle libvpx exiftool cairo ffmpeg <<<"
+	    @echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+	    @echo
+    endif
 	@pip install -e .[tests]
-	@echo
-	@echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
-	@echo ">>>>>>>>>>>>>>> MAKE SURE GIFSICLE IS INSTALLED IF RUNNING TESTS <<<<<<<<<<<<<<"
-	@echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
-	@echo
+
 
 setup_mac:
 	@brew tap homebrew/science
 	@brew update
-	@brew install imagemagick webp opencv coreutils gifsicle libvpx exiftool
+	@brew install imagemagick webp opencv coreutils gifsicle libvpx exiftool cairo
 	@brew install ffmpeg --with-libvpx
 	@opencv_path=`realpath $$(dirname $$(brew --prefix opencv))/$$(readlink $$(brew --prefix opencv))`; \
 		echo 'Enter in your site-packages directory and run the following lines:';\
@@ -34,7 +41,7 @@ ci_test: compile_ext
 	@echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 	@echo "TORNADO IS `python -c 'import tornado; import inspect; print(inspect.getfile(tornado))'`"
 	@echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
-	@if [ -z "$$INTEGRATION_TEST" ]; then $(MAKE) unit static coverage; else $(MAKE) integration_run; fi
+	@if [ "$$LINT_TEST" ]; then $(MAKE) flake; elif [ -z "$$INTEGRATION_TEST" ]; then $(MAKE) unit static coverage; else $(MAKE) integration_run; fi
 
 integration_run:
 	@nosetests -sv integration_tests/
@@ -136,10 +143,14 @@ sample_images:
 	convert tests/fixtures/filters/watermark.svg -transparent white -resize 30x30 tests/fixtures/filters/watermark.png
 	curl -s https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Guido-portrait-2014.jpg/800px-Guido-portrait-2014.jpg -o tests/fixtures/filters/800px-Guido-portrait-2014.jpg
 	curl -s https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Christophe_Henner_-_June_2016.jpg/800px-Christophe_Henner_-_June_2016.jpg -o tests/fixtures/filters/800px-Christophe_Henner_-_June_2016.jpg
+	curl -s https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/Coffee_berries_1.jpg/800px-Coffee_berries_1.jpg -o tests/fixtures/filters/800px-Coffee_berries_1.jpg
+	curl -s https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/A_small_cup_of_coffee.JPG/800px-A_small_cup_of_coffee.JPG -o tests/fixtures/filters/800px-A_small_cup_of_coffee.JPG
+	curl -s https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Coffee_beans_-_ziarna_kawy.jpg/513px-Coffee_beans_-_ziarna_kawy.jpg -o tests/fixtures/filters/513px-Coffee_beans_-_ziarna_kawy.jpg
+	curl -s https://upload.wikimedia.org/wikipedia/commons/archive/4/47/20161122122708%21PNG_transparency_demonstration_1.png | convert - -resize 300x225 tests/fixtures/filters/PNG_transparency_demonstration_1.png
+	convert tests/fixtures/filters/PNG_transparency_demonstration_1.png -background blue -flatten tests/fixtures/filters/PNG_transparency_demonstration_1_blue.png
 	cp tests/fixtures/filters/source.jpg tests/fixtures/filters/800px-Katherine_Maher.jpg
 	cp tests/fixtures/images/Giunchedi%2C_Filippo_January_2015_01.jpg tests/fixtures/filters/Giunchedi%2C_Filippo_January_2015_01.jpg
 	# the watermark filter's logic is too complicated to reproduce with IM, the watermark test images can't be generated here
-	# similarly, the noise, colorize and fill filters generate output too unique to be reproduce with IM and can't be generated here
 
 # create a venv
 venv:
@@ -158,4 +169,3 @@ package:
 	mkdir -p builds
 	mv /tmp/$(COMMIT).tar.gz builds/$(COMMIT).tar.gz
 
-.PHONY: venv package

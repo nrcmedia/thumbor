@@ -8,15 +8,16 @@
 # http://www.opensource.org/licenses/mit-license
 # Copyright (c) 2011 globo.com thumbor@googlegroups.com
 
+import time
 from os.path import abspath, join, dirname
 from preggy import expect
 import mock
-from urllib import quote
 # from tornado.concurrent import Future
 import tornado.web
 from tests.base import PythonTestCase, TestCase
 from tornado.concurrent import Future
 import re
+from six.moves.urllib.parse import quote
 
 import thumbor.loaders.http_loader as loader
 from thumbor.context import Context
@@ -33,9 +34,21 @@ class MainHandler(tornado.web.RequestHandler):
         self.write('Hello')
 
 
+class TimeoutHandler(tornado.web.RequestHandler):
+    def get(self):
+        time.sleep(1.2)
+        self.write('Hello')
+
+
 class EchoUserAgentHandler(tornado.web.RequestHandler):
     def get(self):
         self.write(self.request.headers['User-Agent'])
+
+
+class EchoAllHeadersHandler(tornado.web.RequestHandler):
+    def get(self):
+        for header, value in sorted(self.request.headers.iteritems()):
+            self.write("%s:%s\n" % (header, value))
 
 
 class HandlerMock(object):
@@ -174,6 +187,16 @@ class HttpLoaderTestCase(TestCase):
 
         return application
 
+    def setUp(self):
+        super(HttpLoaderTestCase, self).setUp()
+        # not sure how AsyncHTTPClient really works (see the
+        # magic regarding quasi-singleton) but I need to
+        # force the connection to be closed so that it can
+        # be configured with the right http client implementation
+        # afterwards, otherwise I will get a cached (and normally
+        # wrong) implementation
+        tornado.httpclient.AsyncHTTPClient().close()
+
     def test_load_with_callback(self):
         url = self.get_url('/')
         config = Config()
@@ -215,6 +238,65 @@ class HttpLoaderTestCase(TestCase):
         expect(isinstance(future, Future)).to_be_true()
 
 
+class HttpLoaderWithHeadersForwardingTestCase(TestCase):
+
+    def get_app(self):
+        application = tornado.web.Application([
+            (r"/", EchoAllHeadersHandler),
+        ])
+
+        return application
+
+    def test_load_with_some_headers(self):
+        url = self.get_url('/')
+        config = Config()
+        config.HTTP_LOADER_FORWARD_HEADERS_WHITELIST = ["X-Server"]
+        handler_mock_options = {
+            "Accept-Encoding": "gzip",
+            "User-Agent": "Thumbor",
+            "Host": "localhost",
+            "Accept": "*/*",
+            "X-Server": "thumbor"
+        }
+        ctx = Context(None, config, None, HandlerMock(handler_mock_options))
+
+        loader.load(ctx, url, self.stop)
+        result = self.wait()
+        expect(result).to_be_instance_of(LoaderResult)
+        expect(result.buffer).to_include("X-Server:thumbor")
+
+    def test_load_with_some_excluded_headers(self):
+        url = self.get_url('/')
+        config = Config()
+        handler_mock_options = {
+            "Accept-Encoding": "gzip",
+            "User-Agent": "Thumbor",
+            "Host": "localhost",
+            "Accept": "*/*",
+            "X-Server": "thumbor"
+        }
+        ctx = Context(None, config, None, HandlerMock(handler_mock_options))
+
+        loader.load(ctx, url, self.stop)
+        result = self.wait()
+        expect(result).to_be_instance_of(LoaderResult)
+        expect(result.buffer).Not.to_include("X-Server:thumbor")
+
+    def test_load_with_all_headers(self):
+        url = self.get_url('/')
+        config = Config()
+        config.HTTP_LOADER_FORWARD_ALL_HEADERS = True
+        handler_mock_options = {"X-Test": "123", "DNT": "1", "X-Server": "thumbor"}
+        ctx = Context(None, config, None, HandlerMock(handler_mock_options))
+
+        loader.load(ctx, url, self.stop)
+        result = self.wait()
+        expect(result).to_be_instance_of(LoaderResult)
+        expect(result.buffer).to_include("Dnt:1\n")
+        expect(result.buffer).to_include("X-Server:thumbor\n")
+        expect(result.buffer).to_include("X-Test:123\n")
+
+
 class HttpLoaderWithUserAgentForwardingTestCase(TestCase):
 
     def get_app(self):
@@ -246,3 +328,83 @@ class HttpLoaderWithUserAgentForwardingTestCase(TestCase):
         result = self.wait()
         expect(result).to_be_instance_of(LoaderResult)
         expect(result.buffer).to_equal('DEFAULT_USER_AGENT')
+
+
+class HttpCurlTimeoutLoaderTestCase(TestCase):
+
+    def get_app(self):
+        application = tornado.web.Application([
+            (r"/", TimeoutHandler),
+        ])
+
+        return application
+
+    def setUp(self):
+        super(HttpCurlTimeoutLoaderTestCase, self).setUp()
+        # not sure how AsyncHTTPClient really works (see the
+        # magic regarding quasi-singleton) but I need to
+        # force the connection to be closed so that it can
+        # be configured with the right http client implementation
+        # afterwards, otherwise I will get a cached (and normally
+        # wrong) implementation
+        tornado.httpclient.AsyncHTTPClient().close()
+
+    def test_load_with_timeout(self):
+        url = self.get_url('/')
+        config = Config()
+        config.HTTP_LOADER_CURL_ASYNC_HTTP_CLIENT = True
+        config.HTTP_LOADER_REQUEST_TIMEOUT = 1
+        ctx = Context(None, config, None)
+
+        loader.load(ctx, url, self.stop)
+        result = self.wait()
+        expect(result).to_be_instance_of(LoaderResult)
+        expect(result.buffer).to_be_null()
+        expect(result.successful).to_be_false()
+
+    def test_load_with_speed_timeout(self):
+        url = self.get_url('/')
+        config = Config()
+        config.HTTP_LOADER_CURL_ASYNC_HTTP_CLIENT = True
+        config.HTTP_LOADER_CURL_LOW_SPEED_TIME = 1
+        config.HTTP_LOADER_CURL_LOW_SPEED_LIMIT = 1000000000000
+        ctx = Context(None, config, None)
+
+        loader.load(ctx, url, self.stop)
+        result = self.wait()
+        expect(result).to_be_instance_of(LoaderResult)
+        expect(result.buffer).to_be_null()
+        expect(result.successful).to_be_false()
+
+
+class HttpTimeoutLoaderTestCase(TestCase):
+
+    def get_app(self):
+        application = tornado.web.Application([
+            (r"/", TimeoutHandler),
+        ])
+
+        return application
+
+    def setUp(self):
+        super(HttpTimeoutLoaderTestCase, self).setUp()
+        # not sure how AsyncHTTPClient really works (see the
+        # magic regarding quasi-singleton) but I need to
+        # force the connection to be closed so that it can
+        # be configured with the right http client implementation
+        # afterwards, otherwise I will get a cached (and normally
+        # wrong) implementation
+        tornado.httpclient.AsyncHTTPClient().close()
+
+    def test_load_without_curl_but_speed_timeout(self):
+        url = self.get_url('/')
+        config = Config()
+        config.HTTP_LOADER_CURL_LOW_SPEED_TIME = 1
+        config.HTTP_LOADER_CURL_LOW_SPEED_LIMIT = 1000000000000
+        ctx = Context(None, config, None)
+
+        loader.load(ctx, url, self.stop)
+        result = self.wait()
+        expect(result).to_be_instance_of(LoaderResult)
+        expect(result.buffer).to_equal('Hello')
+        expect(result.successful).to_be_true()

@@ -5,9 +5,8 @@
 # TODO: separator line between images
 # TODO: custom alignment
 
-import logging
 import math
-from os.path import abspath, dirname, isabs, join, splitext
+from os.path import abspath, dirname, isabs, join
 
 import cv2
 import numpy as np
@@ -15,11 +14,12 @@ import tornado.gen
 from thumbor.filters import BaseFilter, filter_method
 from thumbor.loaders import LoaderResult
 from thumbor.point import FocalPoint
+from thumbor.utils import logger
 
 
 def calc_new_size_by_height(width, height, bound):
     new_width = width * (bound * 100 / float(height)) / float(100)
-    return (new_width, bound)
+    return int(round(new_width)), bound
 
 
 class StandaloneFaceDetector:
@@ -112,7 +112,7 @@ class StandaloneFaceDetector:
         for (left, top, width, height), neighbors in features:
             top = cls.add_hair_offset(top, height)
             focal_points.append(
-                FocalPoint.from_square(left, top, width, height, origin="Face Detection"))
+                FocalPoint.from_square(left, top, width, height, origin='Face Detection'))
         return focal_points
 
 
@@ -120,7 +120,6 @@ class Picture:
     def __init__(self, url, thumbor_filter):
         self.url = url
         self.thumbor_filter = thumbor_filter
-        self.extension = splitext(url)[-1].lower()
         self.engine = None
         self.fetched = False
         self.failed = False
@@ -135,23 +134,27 @@ class Picture:
         try:
             self.thumbor_filter.context.modules.loader.load(
                 self.thumbor_filter.context, self.url, self.on_fetch_done)
-        except Exception, err:
-            self.error(err)
+        except Exception as err:
+            self.failed = True
+            logger.exception(err)
 
     def save_on_disc(self):
         if self.fetched:
             try:
-                self.engine.load(self.buffer, self.extension)
-            except Exception, err:
-                self.error(err)
+                self.engine.load(self.buffer, None)
+            except Exception as err:
+                self.failed = True
+                logger.exception(err)
 
             try:
                 self.thumbor_filter.storage.put(self.url, self.engine.read())
                 self.thumbor_filter.storage.put_crypto(self.url)
-            except Exception, err:
-                self.error(err)
+            except Exception as err:
+                self.failed = True
+                logger.exception(err)
         else:
-            self.error("Can't save unfetched image")
+            self.failed = True
+            logger.error("filters.distributed_collage: Can't save unfetched image")
 
     def on_fetch_done(self, result):
         # TODO if result.successful is False how can the error be handled?
@@ -159,23 +162,30 @@ class Picture:
         self.save_on_disc()
         self.thumbor_filter.on_image_fetch()
 
+    def resize_focal_points(self, focal_points, ratio):
+        for fp in focal_points:
+            fp.x *= ratio
+            fp.y *= ratio
+            fp.width *= ratio
+            fp.height *= ratio
+            fp.weight *= ratio
+
     def process(self, canvas_width, canvas_height, size):
         try:
-            self.engine.load(self.buffer, self.extension)
+            self.engine.load(self.buffer, None)
             width, height = self.engine.size
-            if width > height:
-                self.engine.resize(*calc_new_size_by_height(
-                    width, height, canvas_height))
+            new_width, new_height = calc_new_size_by_height(width, height, canvas_height)
             focal_points = StandaloneFaceDetector.features_to_focal_points(
                 StandaloneFaceDetector.get_features(self.thumbor_filter.context, self.engine))
+            if focal_points:
+                self.resize_focal_points(focal_points, float(new_width) / width)
+            else:
+                focal_points.append(FocalPoint.from_alignment('center', 'top', new_width, new_height))
+            self.engine.resize(new_width, new_height)
             self.engine.focus(focal_points)
             StandaloneFaceDetector.auto_crop(self.engine, focal_points, size, canvas_height)
-        except Exception, err:
-            logging.error(err)
-
-    def error(self, msg):
-        logging.error(msg)
-        self.failed = True
+        except Exception as err:
+            logger.exception(err)
 
 
 class Filter(BaseFilter):
@@ -185,7 +195,7 @@ class Filter(BaseFilter):
     @filter_method(r'horizontal', r'smart', r'[^\)]+', async=True)
     @tornado.gen.coroutine
     def distributed_collage(self, callback, orientation, alignment, urls):
-        logging.debug('distributed_collage invoked')
+        logger.debug('filters.distributed_collage: distributed_collage invoked')
         self.storage = self.context.modules.storage
 
         self.callback = callback
@@ -196,10 +206,10 @@ class Filter(BaseFilter):
 
         total = len(self.urls)
         if total > self.MAX_IMAGES:
-            logging.error('Too many images to join')
+            logger.error('filters.distributed_collage: Too many images to join')
             callback()
         elif total == 0:
-            logging.error('No images to join')
+            logger.error('filters.distributed_collage: No images to join')
             callback()
         else:
             self.urls = self.urls[:self.MAX_IMAGES]
@@ -227,49 +237,46 @@ class Filter(BaseFilter):
     def create_engine(self):
         try:
             return self.context.modules.engine.__class__(self.context)
-        except Exception, err:
-            logging.error(err)
+        except Exception as err:
+            logger.exception(err)
 
     def on_image_fetch(self):
         if (self.is_any_failed()):
-            logging.error('some images failed')
+            logger.error('filters.distributed_collage: Some images failed')
             self.callback()
         elif self.is_all_fetched():
             self.assembly()
 
     def divide_size(self, size, parts):
-        """
+        '''
         Solves the problem with division where the result isn't integer.
         For example, when dividing a 100px image in 3 parts, the collage
         division should be like 33px + 33px + 34px = 100px. In this case,
         slice_size is 33px and major_slice_size is 34px.
-        """
+        '''
         slice_size = size / float(parts)
         major_slice_size = math.ceil(slice_size)
         slice_size = math.floor(slice_size)
         return int(slice_size), int(major_slice_size)
 
     def assembly(self):
-        logging.debug('assembly started')
+        logger.debug('filters.distributed_collage: assembly started')
         canvas = self.create_engine()
         canvas_width, canvas_height = self.engine.size
         canvas.image = canvas.gen_image((canvas_width, canvas_height), '#fff')
 
-        i = 0
-        total = len(self.images)
-        slice_size, major_slice_size = self.divide_size(canvas_width, total)
-        for url in self.urls:
+        slice_size, major_slice_size = self.divide_size(canvas_width, len(self.images))
+        for i, url in enumerate(self.urls):
             image = self.images[url]
             x, y = i * slice_size, 0
-            if i + 1 == total:
+            if i == len(self.images) - 1:
                 slice_size = major_slice_size
             try:
                 image.process(canvas_width, canvas_height, slice_size)
                 canvas.paste(image.engine, (x, y), merge=True)
-            except Exception, err:
-                logging.error(err)
-            i += 1
+            except Exception as err:
+                logger.exception(err)
 
         self.engine.image = canvas.image
-        logging.debug('assembled')
+        logger.debug('filters.distributed_collage: assembly finished')
         self.callback()

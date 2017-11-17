@@ -75,6 +75,7 @@ filters = [
     'filters:round_corner(20,255,255,100)',
     'filters:sharpen(6,2.5,false)',
     'filters:sharpen(6,2.5,true)',
+    'filters:strip_exif()',
     'filters:strip_icc()',
     'filters:watermark(rgba-interlaced.png,10,10,50)',
     'filters:watermark(rgba-interlaced.png,center,center,50)',
@@ -94,6 +95,7 @@ filters = [
     'filters:gifv(webm)',
     'filters:gifv(mp4)',
     'filters:max_age(600)',
+    'filters:upscale()',
 
     # one big filter 4-line string
     'filters:curve([(0,0),(255,255)],[(0,50),(16,51),(32,69),(58,85),(92,120),(128,170),(140,186),(167,225),'

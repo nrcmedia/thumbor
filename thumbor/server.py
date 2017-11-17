@@ -12,7 +12,6 @@ import gc
 import sys
 import logging
 import logging.config
-import schedule
 import warnings
 
 import os
@@ -29,6 +28,11 @@ from thumbor.context import Context
 from thumbor.utils import which
 
 from PIL import Image
+
+try:
+    basestring
+except NameError:
+    basestring = str
 
 def get_as_integer(value):
     try:
@@ -77,7 +81,9 @@ def validate_config(config, server_parameters):
             'Please provide one using the conf file or a security key file.')
 
     if config.ENGINE or config.USE_GIFSICLE_ENGINE:
+        # Error on Image.open when image pixel count is above MAX_IMAGE_PIXELS
         warnings.simplefilter('error', Image.DecompressionBombWarning)
+
     if config.USE_GIFSICLE_ENGINE:
         server_parameters.gifsicle_path = which('gifsicle')
         if server_parameters.gifsicle_path is None:
@@ -100,7 +106,7 @@ def get_application(context):
 
 
 def run_server(application, context):
-    server = HTTPServer(application)
+    server = HTTPServer(application, xheaders=True)
 
     if context.server.fd is not None:
         fd_number = get_as_integer(context.server.fd)
@@ -134,9 +140,9 @@ def main(arguments=None):
     config = get_config(server_parameters.config_path)
     configure_log(config, server_parameters.log_level.upper())
 
-    importer = get_importer(config)
-
     validate_config(config, server_parameters)
+
+    importer = get_importer(config)
 
     with get_context(server_parameters, config, importer) as context:
         application = get_application(context)
@@ -154,4 +160,4 @@ def main(arguments=None):
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main(sys.argv[1:])

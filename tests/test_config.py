@@ -69,6 +69,7 @@ class ConfigValuesTestCase(TestCase):
                 'thumbor.filters.equalize',
                 'thumbor.filters.fill',
                 'thumbor.filters.sharpen',
+                'thumbor.filters.strip_exif',
                 'thumbor.filters.strip_icc',
                 'thumbor.filters.frame',
                 'thumbor.filters.grayscale',
@@ -84,6 +85,8 @@ class ConfigValuesTestCase(TestCase):
                 'thumbor.filters.max_age',
                 'thumbor.filters.curve',
                 'thumbor.filters.distributed_collage',
+                'thumbor.filters.background_color',
+                'thumbor.filters.upscale',
             ])
         )
 
