@@ -13,6 +13,7 @@ import numpy as np
 
 from thumbor.detectors import BaseDetector
 from thumbor.point import FocalPoint
+from thumbor.utils import logger
 
 
 class Detector(BaseDetector):
@@ -26,7 +27,9 @@ class Detector(BaseDetector):
                     with_alpha=False
                 )
             )
-        except Exception:
+        except Exception as e:
+            logger.exception(e)
+            logger.warn('Error during feature detection; skipping to next detector')
             self.next(callback)
             return
 

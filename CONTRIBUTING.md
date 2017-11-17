@@ -1,14 +1,25 @@
-So you want to contribute with thumbor? Welcome onboard!
+So you want to contribute with thumbor? Awesome! Welcome aboard!
 
-There are a few things you'll need in order to properly start hacking on it.
+## Steps
+
+1. Fork and clone
+2. Install dependencies
+3. Hack, in no particular order:
+   - Write enough code
+   - Write tests for that code
+   - Check that other tests pass
+   - Repeat until you're satisfied
+4. Submit a pull request
+
+## For and clone
 
 First step is to fork it at http://help.github.com/fork-a-repo/ and create your own clone of thumbor.
 
 ## Dependencies
 
-We seriously advise you to use virtualenv (http://pypi.python.org/pypi/virtualenv) since it will keep your environment clean of thumbor's dependencies and you can choose when to "turn them on".
+There are a few things you'll need in order to properly start hacking on it.
 
-You'll also need python >= 2.6 and < 3.0.
+You'll need Python 2.7 and we seriously advise you to use virtualenv (http://pypi.python.org/pypi/virtualenv) since it will keep your environment clean of thumbor's dependencies and you can choose when to "turn them on".
 
 The following packages are required:
 

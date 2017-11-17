@@ -82,6 +82,24 @@ class PilEngineTestCase(TestCase):
         engine.convert_tif_to_png(buffer)
         expect(engine.extension).to_equal('.png')
 
+    def test_convert_png_1bit_to_png(self):
+        engine = Engine(self.context)
+        with open(join(STORAGE_PATH, '1bit.png'), 'r') as im:
+            buffer = im.read()
+        engine.load(buffer, '.png')
+        engine.resize(10, 10)
+        mode, _ = engine.image_data_as_rgb()
+        expect(mode).to_equal('P')  # Note that this is not a true 1bit image, it's 8bit in black/white.
+
+    def test_convert_should_preserve_palette_mode(self):
+        engine = Engine(self.context)
+        with open(join(STORAGE_PATH, '256_color_palette.png'), 'r') as im:
+            buffer = im.read()
+        engine.load(buffer, '.png')
+        engine.resize(10, 10)
+        mode, _ = engine.image_data_as_rgb()
+        expect(mode).to_equal('P')
+
     def test_can_set_resampling_filter(self):
         to_test = {
             'LANCZOS': Image.LANCZOS,
@@ -103,7 +121,7 @@ class PilEngineTestCase(TestCase):
         engine = Engine(Context(config=cfg))
         expect(engine.get_resize_filter()).to_equal(Image.LANCZOS)
 
-    @mock.patch('thumbor.engines.pil.cv', new=None)
+    @mock.patch('thumbor.engines.pil.cv2', new=None)
     @mock.patch('thumbor.engines.logger.error')
     def test_not_imported_cv2_failed_to_convert_tif_to_png(self, mockLogError):
         engine = Engine(self.context)

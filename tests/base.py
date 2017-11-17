@@ -8,11 +8,11 @@
 # http://www.opensource.org/licenses/mit-license
 # Copyright (c) 2011 globo.com thumbor@googlegroups.com
 
+from __future__ import print_function
 import random
 import unicodedata
 from io import BytesIO
 from unittest import TestCase as PythonTestCase
-import urllib
 import mimetypes
 from os.path import exists, realpath, dirname, join
 import cStringIO
@@ -21,6 +21,7 @@ import mock
 from PIL import Image
 from ssim import compute_ssim
 from preggy import create_assertions
+from six.moves.urllib.parse import urlencode
 
 from thumbor.app import ThumborServiceApp
 from thumbor.context import Context, RequestParameters
@@ -30,6 +31,11 @@ from thumbor.transformer import Transformer
 from thumbor.engines.pil import Engine as PilEngine
 
 from tornado.testing import AsyncHTTPTestCase
+
+try:
+    unicode        # Python 2
+except NameError:
+    unicode = str  # Python 3
 
 
 @create_assertions
@@ -159,8 +165,8 @@ class TestCase(AsyncHTTPTestCase):
         return None
 
     def get_context(self):
-        self.server = self.get_server()
         self.config = self.get_config()
+        self.server = self.get_server()
         self.importer = self.get_importer()
         self.request_handler = self.get_request_handler()
         return Context(
@@ -173,7 +179,7 @@ class TestCase(AsyncHTTPTestCase):
     def get(self, path, headers):
         return self.fetch(path,
                           method='GET',
-                          body=urllib.urlencode({}, doseq=True),
+                          body=urlencode({}, doseq=True),
                           headers=headers,
                           allow_nonstandard_methods=True)
 
@@ -194,7 +200,7 @@ class TestCase(AsyncHTTPTestCase):
     def delete(self, path, headers):
         return self.fetch(path,
                           method='DELETE',
-                          body=urllib.urlencode({}, doseq=True),
+                          body=urlencode({}, doseq=True),
                           headers=headers,
                           allow_nonstandard_methods=True)
 
@@ -267,7 +273,10 @@ class FilterTestCase(PythonTestCase):
 
         fltr.context.transformer.img_operation_worker()
 
-        fltr.run()
+        def dummy_callback(*args):
+            pass
+
+        fltr.run(dummy_callback)
 
         fltr.engine.image = fltr.engine.image.convert('RGB')
 
@@ -280,11 +289,11 @@ class FilterTestCase(PythonTestCase):
         im = Image.fromarray(image)
         path = '/tmp/debug_image_%s.jpg' % random.randint(1, 10000)
         im.save(path, 'JPEG')
-        print 'The debug image was in %s.' % path
+        print('The debug image was in %s.' % path)
 
     def debug_size(self, image):
         im = Image.fromarray(image)
-        print "Image dimensions are %dx%d (shape is %s)" % (im.size[0], im.size[1], image.shape)
+        print("Image dimensions are %dx%d (shape is %s)" % (im.size[0], im.size[1], image.shape))
 
 
 class DetectorTestCase(PythonTestCase):

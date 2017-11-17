@@ -1,4 +1,4 @@
-Relase Notes
+Release Notes
 ===========
 
 ** THIS PAGE IS HERE ONLY FOR HISTORIC PURPOSES, since we are now using `github releases page <https://github.com/thumbor/thumbor/releases>`__. **
@@ -870,4 +870,3 @@ and will go away in the next major. For more information read the
    Support <https://github.com/thumbor/thumbor/issues#issue/1>`__
    (FIXED)
 -  Internal logic refactored.
-

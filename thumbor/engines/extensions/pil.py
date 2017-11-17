@@ -80,14 +80,6 @@ except ImportError:
     np = None
 
 
-def get_cKDTree():
-    try:
-        from scipy.spatial import cKDTree
-    except ImportError:
-        cKDTree = None
-    return cKDTree
-
-
 # getheader gives a 87a header and a color palette (two elements in a list).
 # getdata()[0] gives the Image Descriptor up to (including) "LZW min code size".
 # getdatas()[1:] is the image data itself in chuncks of 256 bytes (well
@@ -429,7 +421,7 @@ class GifWriter:
                 # Gather info
                 data = getdata(im)
 
-                imdes, data = data[0], data[1:]
+                imdes, data = b''.join(data[:-2]), data[-2:]
                 graphext = self.getGraphicsControlExt(durations[frames], disposes[frames])
                 # Make image descriptor suitable for using 256 local color palette
                 lid = self.getImageDescriptor(im, xys[frames])

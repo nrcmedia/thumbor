@@ -13,9 +13,14 @@ import tornado
 from concurrent.futures import ThreadPoolExecutor, Future
 import functools
 
-from thumbor.utils import logger
 from thumbor.filters import FiltersFactory
 from thumbor.metrics.logger_metrics import Metrics
+from thumbor.utils import logger
+
+try:
+    unicode
+except NameError:
+    unicode = str
 
 
 class Context:
@@ -52,9 +57,7 @@ class Context:
 
         self.filters_factory = FiltersFactory(self.modules.filters if self.modules else [])
         self.request_handler = request_handler
-        self.statsd_client = self.metrics  # TODO statsd_client is deprecated, remove me on next minor version bump
         self.thread_pool = ThreadPool.instance(getattr(config, 'ENGINE_THREADPOOL_SIZE', 0))
-        self.headers = {}
 
     def __enter__(self):
         return self
@@ -263,13 +266,15 @@ class ThreadPool(object):
     def _execute_in_foreground(self, operation, callback):
         result = Future()
         returned = None
+
         try:
             returned = operation()
         except Exception as e:
-            # just log exception and release ioloop
-            returned = e
-            logger.exception(e)
-        result.set_result(returned)
+            logger.exception('[ThreadPool] %s', e)
+            result.set_exception(e)
+        else:
+            result.set_result(returned)
+
         callback(result)
 
     def _execute_in_pool(self, operation, callback):
@@ -288,5 +293,5 @@ class ThreadPool(object):
 
     def cleanup(self):
         if self.pool:
-            print "Joining threads...."
+            print("Joining threads....")
             self.pool.shutdown()
