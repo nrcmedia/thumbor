@@ -157,11 +157,11 @@ class BaseHandler(tornado.web.RequestHandler):
                     self._error(404)
                     return
                 elif result.loader_error == LoaderResult.ERROR_FORBIDDEN:
-                    self._error(404)
                     blacklist = yield self.get_blacklist_contents()
                     blacklist += self.context.request.image_url + "\n"
-                    logger.debug('403 Adding to blacklist: %s' % self.context.request.image_url)
+                    logger.warning('403 Adding to blacklist: %s' % self.context.request.image_url)
                     self.context.modules.storage.put('blacklist.txt', blacklist)
+                    self._error(404)
                     return
                 elif result.loader_error == LoaderResult.ERROR_UPSTREAM:
                     # Return a Bad Gateway status if the error came from upstream
@@ -182,8 +182,9 @@ class BaseHandler(tornado.web.RequestHandler):
                     return
 
         except Exception as e:
+            url = self.context.request.image_url if self.context.request else '-|-'
             msg = '[BaseHandler] get_image failed for url `{url}`. error: `{error}`'.format(
-                url=self.context.request.image_url,
+                url=url,
                 error=e
             )
 
@@ -484,9 +485,9 @@ class BaseHandler(tornado.web.RequestHandler):
 
         self.context.headers = self._headers.copy()
         self._response_ext = EXTENSION.get(content_type)
-        self._response_length = len(buffer)
+        self._response_length = len(buffer) if buffer else 0
 
-        self.write(buffer)
+        self.write(buffer if buffer else '')
         self.finish()
 
     @gen.coroutine
