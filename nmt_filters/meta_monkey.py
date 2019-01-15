@@ -1,5 +1,7 @@
 import json
 
+from PIL import Image
+
 from nmt_filters.lib.colorthief import ColorThief
 from thumbor.engines.json_engine import JSONEngine
 from thumbor.filters import BaseFilter
@@ -41,7 +43,10 @@ def monkey_read(self, extension, quality):
     if self.focal_points:
         thumbor_json["thumbor"]["focal_points"] = self.focal_points
 
-    ct = ColorThief(self.image)
+    # use a resampled image for performance
+    thumbnail_image = self.image.resize((320, 240), Image.NEAREST)
+
+    ct = ColorThief(thumbnail_image)
     thumbor_json["colors"] = dict(dominant=ct.get_color(), palette=ct.get_palette())
     thumbor_json = json.dumps(thumbor_json)
 
