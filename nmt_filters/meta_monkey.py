@@ -64,9 +64,9 @@ def monkey_read(self, extension, quality):
     thumbor_json["colors"] = dict(
         # the dominant color:
         dominant=palette_ct.get_color(),
-        # a palette of the most dominant colors
+        # a palette of the most dominant colors:
         palette=palette_ct.get_palette(),
-        # a 4x4 matrix of the dominant color in each quadrant of the image
+        # a 4x4 matrix of the dominant color in each quadrant of the image:
         matrix=(get_matrix(matrix_image)),
     )
     thumbor_json = json.dumps(thumbor_json)
