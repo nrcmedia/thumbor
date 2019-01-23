@@ -9,34 +9,15 @@ pipeline:
       - make venv
       - make package
 
-  publish:
-    s3:
-      acl: private
-      region: eu-west-1
-      bucket: nrcbuilds
-      access_key: $$AWS_KEY
-      secret_key: $$AWS_SECRET
-      source: builds/$$COMMIT.tar.gz
-      target: github.com/nrcmedia/thumbor/$$BRANCH/$$COMMIT.tar.gz
-      when:
-        owner: nrcmedia
-
-  notify:
-    slack:
-      webhook_url: $$SLACK_URL
-      channel: "#nrcnldev"
-      username: Drone
-      when:
-        success: false
-        failure: false
-
-    slack_blame:
-      token: $$SLACK_TOKEN
-      channel: "#nrcnldev"
-      when:
-        success: false
-        failure: true
-      failure:
-        username: "Dizzy Deep"
-        icon: ":deep:"
-        message: "The build is broken!"
+  s3:
+    image: plugins/s3
+    bucket: nrcbuilds
+    acl: private
+    region: eu-west-1
+    secrets: [ AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY ]
+    source: builds/${DRONE_COMMIT_SHA}.tar.gz
+    target: github.com/nrcmedia/thumbor/${DRONE_COMMIT_BRANCH}
+    strip_prefix: builds/
+    when:
+      owner: nrcmedia
+      event: [push, tag, deployment]
