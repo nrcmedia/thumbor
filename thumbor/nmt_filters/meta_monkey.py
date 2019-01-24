@@ -2,7 +2,7 @@ import json
 
 from PIL import Image
 
-from nmt_filters.lib.colorthief import ColorThief
+from thumbor.nmt_filters.lib.colorthief import ColorThief
 from thumbor.engines.json_engine import JSONEngine
 from thumbor.filters import BaseFilter
 
@@ -19,7 +19,7 @@ Example:
 It is implemented as a filter as these can be configured in config `FILTERS` and are
 conveniently imported at server startup in thumbor.server.main by `get_importer`
 
-To enable add 'nmt_filters.meta_monkey' at the top of `FILTERS` in the thumbor config file
+To enable add 'thumbor.nmt_filters.meta_monkey' at the top of `FILTERS` in the thumbor config file
 """
 
 
