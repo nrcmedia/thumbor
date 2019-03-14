@@ -367,13 +367,13 @@ class BaseHandler(tornado.web.RequestHandler):
         results = context.request.engine.read(image_extension, quality)
         if results:
             if context.request.max_bytes is not None:
-                    results = self.reload_to_fit_in_kb(
-                        context.request.engine,
-                        results,
-                        image_extension,
-                        quality,
-                        context.request.max_bytes
-                    )
+                results = self.reload_to_fit_in_kb(
+                    context.request.engine,
+                    results,
+                    image_extension,
+                    quality,
+                    context.request.max_bytes
+                )
                 if not context.request.meta:
                     results = self.optimize(context, image_extension, results)
                     # An optimizer might have modified the image format.
