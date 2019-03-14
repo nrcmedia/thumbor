@@ -160,6 +160,9 @@ Config.define('ALLOW_OLD_URLS', True, 'Indicates if encrypted (old style) URLs s
 Config.define('ENABLE_ETAGS', True, 'Enables automatically generated etags', 'HTTP')
 Config.define('MAX_ID_LENGTH', 32, 'Set maximum id length for images when stored', 'Storage')
 Config.define('GC_INTERVAL', None, 'Set garbage collection interval in seconds', 'Performance')
+Config.define(
+    'STORAGE_CACHE_BUST_HEADER', None,
+    'Indicates a header to use to prevent loading from on-disk cache', 'Storage')
 
 Config.define('HEALTHCHECK_ROUTE', r'/healthcheck', 'Healthcheck route.', 'Healthcheck')
 

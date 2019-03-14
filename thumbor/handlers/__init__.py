@@ -585,7 +585,9 @@ class BaseHandler(tornado.web.RequestHandler):
         yield self.acquire_url_lock(url)
 
         try:
-            fetch_result.buffer = yield gen.maybe_future(storage.get(url))
+            if not self.context.config.STORAGE_CACHE_BUST_HEADER or \
+                    self.context.config.STORAGE_CACHE_BUST_HEADER not in self.request.headers:
+                fetch_result.buffer = yield gen.maybe_future(storage.get(url))
 
             if fetch_result.buffer is not None:
                 self.release_url_lock(url)
