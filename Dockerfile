@@ -2,14 +2,13 @@ FROM python:2.7
 
 RUN apt-get update \
     && apt-get install -y \
-        gifsicle \
-        python-numpy \
-        python-opencv
+        gifsicle
 
 COPY . /thumbor-src/
 RUN pip install /thumbor-src/ \
     && rm -rf /thumbor-src/ \
-    && pip install newrelic
+    && pip install newrelic \
+        opencv-python
 
 RUN groupadd -g 999 thumbor \
     && useradd -r -m -u 999 -g thumbor thumbor \
