@@ -20,3 +20,13 @@ pipeline:
     when:
       owner: nrcmedia
       event: [push, tag, deployment]
+
+  publish:
+    image: plugins/docker
+    secrets: [docker_username, docker_password]
+    registry: hub.nrc.thegraveyard.org
+    repo: hub.nrc.thegraveyard.org/nrc.nl/tumbor
+    dockerfile: Dockerfile
+    tags:
+      - ${DRONE_BRANCH/\//-}
+      - ${DRONE_COMMIT}
