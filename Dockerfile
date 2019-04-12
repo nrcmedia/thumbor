@@ -6,7 +6,7 @@ RUN apt-get update \
         python-opencv
 
 COPY . /thumbor-src/
-RUN pip install -e /thumbor-src/ \
+RUN pip install /thumbor-src/ \
     && rm -rf /thumbor-src/ \
     && pip install newrelic
 
