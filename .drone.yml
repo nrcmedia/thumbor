@@ -24,8 +24,8 @@ pipeline:
   publish:
     image: plugins/docker
     secrets: [docker_username, docker_password]
-    registry: hub.nrc.thegraveyard.org
-    repo: hub.nrc.thegraveyard.org/nrc.nl/thumbor
+    registry: docker-registry.intermax.nl
+    repo: docker-registry.intermax.nl/nrc/thumbor
     dockerfile: Dockerfile
     tags:
       - ${DRONE_BRANCH/\//-}
