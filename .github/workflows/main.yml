@@ -1,0 +1,31 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: self-hosted
+    container: localhost:5000/nrc/buildenv-thumbor:latest
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: Build package
+      run: make package COMMIT=${{ github.event.pull_request.head.sha }}
+
+    - name: Extract branch name
+      shell: bash
+      run: echo "::set-env name=BRANCH_NAME::$(echo ${GITHUB_HEAD_REF#refs/heads/})"
+
+    - name: Upload package
+      uses: jakejarvis/s3-sync-action@v0.5.1
+      env:
+        AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: eu-west-1
+        SOURCE_DIR: builds
+        DEST_DIR: github.com/$GITHUB_REPOSITORY/$BRANCH_NAME

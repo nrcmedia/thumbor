@@ -1,4 +1,4 @@
-COMMIT := $(shell git rev-parse HEAD)
+COMMIT ?= $(shell git rev-parse HEAD)
 OS := $(shell uname)
 
 run: compile_ext
