@@ -1,10 +1,11 @@
 pipeline:
   build:
-    image: nrc/centos67-python-node:latest
+    image: nrc/centos8-python3
     pull: true
     commands:
       - yum install -y git-core
-      - yum install -y libjpeg-turbo-devel libpng-devel libcurl-devel gcc gcc-c++
+      - yum install -y libjpeg-turbo-devel libpng-devel libcurl-devel openssl-devel
+      - yum install -y python2 python2-devel python2-pip python2-virtualenv
       - make venv
       - make package
 
