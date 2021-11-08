@@ -41,14 +41,13 @@ def get_matrix(matrix_image):
 
 def monkey_read(self, extension, quality):
     target_width, target_height = self.get_target_dimensions()
-    width, height = self.engine.size
     thumbor_json = {
         "thumbor": {
             "source": {
                 "url": self.path,
                 "frameCount": self.get_frame_count(),
-                "width": width,
-                "height": height,
+                "width": self.engine.source_width,
+                "height": self.engine.source_height,
             },
             "operations": self.operations,
             "target": {"width": target_width, "height": target_height},
