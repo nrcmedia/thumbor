@@ -46,8 +46,8 @@ def monkey_read(self, extension, quality):
             "source": {
                 "url": self.path,
                 "frameCount": self.get_frame_count(),
-                "width": self.source_width,
-                "height": self.source_height,
+                "width": self.engine.source_width,
+                "height": self.engine.source_height,
             },
             "operations": self.operations,
             "target": {"width": target_width, "height": target_height},
