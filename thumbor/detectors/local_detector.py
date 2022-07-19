@@ -54,7 +54,6 @@ class CascadeLoaderDetector(BaseDetector):
             if len(faces):
                 break
 
-        print(self, faces)
         faces_scaled = []
         for (x, y, w, h) in faces:
             faces_scaled.append((
