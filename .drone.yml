@@ -1,6 +1,6 @@
 pipeline:
   build:
-    image: nrc/centos8-python3
+    image: nrc/centos8-python-node16:latest
     pull: true
     commands:
       - yum install -y git-core

@@ -19,13 +19,15 @@ from thumbor.detectors import BaseDetector
 
 class CascadeLoaderDetector(BaseDetector):
 
-    def load_cascade_file(self, module_path, cascade_file_path):
-        if not hasattr(self.__class__, 'cascade'):
-            if isabs(cascade_file_path):
-                cascade_file = cascade_file_path
-            else:
-                cascade_file = join(abspath(dirname(module_path)), cascade_file_path)
-            self.__class__.cascade = cv2.CascadeClassifier(cascade_file)
+    def load_cascade_file(self, module_path, cascade_file_paths):
+        if not hasattr(self.__class__, 'cascades'):
+            self.__class__.cascades = []
+            for cascade_file_path in cascade_file_paths:
+                if isabs(cascade_file_path):
+                    cascade_file = cascade_file_path
+                else:
+                    cascade_file = join(abspath(dirname(module_path)), cascade_file_path)
+                self.__class__.cascades.append(cv2.CascadeClassifier(cascade_file))
 
     def get_min_size_for(self, size):
         ratio = int(min(size) / 15)
@@ -41,14 +43,18 @@ class CascadeLoaderDetector(BaseDetector):
             )
         )
 
-        faces = self.__class__.cascade.detectMultiScale(
-            img,
-            1.2,
-            4,
-            minSize=self.get_min_size_for(engine.size)
-        )
-        faces_scaled = []
+        faces = []
+        for cascade in self.__class__.cascades:
+            faces = cascade.detectMultiScale(
+                img,
+                1.2,
+                4,
+                minSize=self.get_min_size_for(engine.size)
+            )
+            if len(faces):
+                break
 
+        faces_scaled = []
         for (x, y, w, h) in faces:
             faces_scaled.append((
                 (
