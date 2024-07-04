@@ -36,6 +36,9 @@ def _normalize_url(url):
 # NRC hotfix for not properly encoded urls with spaces in them
     url = url.replace(' ', '%20')
 # END hotfix
+# NRC hotfix for static.nrc.nl (use Cloudflare proxy domain instead of S3)
+    url = url.replace('s3-eu-west-1.amazonaws.com/static.nrc.nl/', 'static.nrc.nl/')
+# END
     return url if url.startswith('http') else 'http://%s' % url
 
 
