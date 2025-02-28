@@ -1,0 +1,23 @@
+when:
+  - event: push
+
+steps:
+  build:
+    image: nrc-build-thumbor
+    commands:
+      - make venv
+      - make package
+
+  upload:
+    image: woodpeckerci/plugin-s3
+    settings:
+      bucket: nrcbuilds
+      acl: private
+      region: eu-west-1
+      access_key:
+        from_secret: nrcbuilds_aws_access_key_id
+      secret_key:
+        from_secret: nrcbuilds_aws_secret_access_key
+      source: builds/${CI_COMMIT_SHA}.tar.gz
+      target: github.com/${CI_REPO}/${CI_COMMIT_BRANCH}
+      strip_prefix: builds/
